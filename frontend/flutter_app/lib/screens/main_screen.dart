@@ -1,7 +1,7 @@
 // lib/screens/main_screen.dart
 import 'package:flutter/material.dart';
 import 'home_screen.dart';
-import 'analysis_screen.dart';
+import 'compare_screen.dart';
 import 'favourite_screen.dart';
 
 class MainScreen extends StatefulWidget {
@@ -16,7 +16,7 @@ class _MainScreenState extends State<MainScreen> {
 
   final List<Widget> _pages = const [
     HomeScreen(),
-    AnalysisScreen(),
+    CompareScreen(),
     FavouriteScreen(),
   ];
 
@@ -70,7 +70,7 @@ class _MainScreenState extends State<MainScreen> {
             BottomNavigationBarItem(
               icon: Icon(Icons.alt_route_rounded),
               activeIcon: Icon(Icons.alt_route_rounded),
-              label: 'Analysis',
+              label: 'Compare',
             ),
             BottomNavigationBarItem(
               icon: Icon(Icons.favorite_outline_rounded),
