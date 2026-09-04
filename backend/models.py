@@ -1,5 +1,3 @@
-#data model focused, create tables to db
-
 from __future__ import annotations
 from datetime import datetime, UTC, time
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, Time,Float, Boolean, UniqueConstraint
@@ -57,11 +55,9 @@ class Dish(Base):
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
     name: Mapped[str] = mapped_column(String(100), index=True)
     price: Mapped[float] = mapped_column(Float, nullable=False)
-    description: Mapped[str | None] = mapped_column(String(255), nullable=True)
     menu_category: Mapped[str] = mapped_column(String(50), index=True)
     average_rating: Mapped[float] = mapped_column(Float, default=0.0)
-    is_spicy: Mapped[bool] = mapped_column(Boolean, nullable=True)
-
+    
     restaurant_id: Mapped[int] = mapped_column(ForeignKey("restaurants.id", ondelete="CASCADE"), index=True, nullable=False)
 
     restaurant: Mapped[Restaurant] = relationship(back_populates="dishes")
@@ -76,10 +72,10 @@ class Restaurant(Base):
     address: Mapped[str] = mapped_column(String(255), nullable=True)
     lat: Mapped[float | None] = mapped_column(Float, nullable=True)
     lon: Mapped[float | None] = mapped_column(Float, nullable=True)
-    map_link: Mapped[str | None] = mapped_column(String(500), nullable=True)
-    opening_hr: Mapped[time | None] = mapped_column(Time, nullable=True)
-    closing_hr: Mapped[time | None] = mapped_column(Time, nullable=True)
-    opening_days: Mapped[str | None] = mapped_column(String(60), default="Everyday", nullable=True)
+    venue_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    cuisine: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    opening_hours: Mapped[str | None] = mapped_column(String(60), nullable=True)
+
     # 🔄 RELATIONSHIP: 1 Restaurant -> Many Dishes
     dishes: Mapped[list[Dish]] = relationship(back_populates="restaurant", cascade="all, delete-orphan")
 

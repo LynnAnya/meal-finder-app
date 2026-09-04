@@ -11,16 +11,13 @@ class RestaurantBase(BaseModel):
     name: str
     lat: float | None
     lon: float | None
-    map_link: str | None
-    opening_hr: time | None
-    closing_hr: time | None
-    opening_days: str | None
-
+    venue_type: str | None
+    cuisine: str | None
+    opening_hours: str | None
+    
 class DishBase(BaseModel): 
     price: float = Field(gt=0)
     menu_category:str = Field(min_length=2, max_length=50,)
-    is_spicy: bool = Field(default=False,)
-    description: str | None =  Field(default=None)
 
 #admin create dish - for now 
 class DishCreate(DishBase):  
@@ -31,8 +28,7 @@ class DishUpdate(BaseModel):
     name: str | None = Field(default=None, validation_alias="dish_name", min_length=2, max_length=50)
     price: float | None = Field(default=None, gt=0)
     menu_category: str | None = Field(default=None, min_length=2, max_length=50)
-    is_spicy: bool | None = Field(default=None)
-    description: str | None = Field(default=None)
+    
 
 # overall dishes 
 class DishResponse(DishBase): 
@@ -55,7 +51,6 @@ class DishSearch(BaseModel):
     search: str | None = Field( default=None)
     rating: float | None = Field(default=None, ge=1.0, le=5.0, )
     max_price: float | None = Field(default=None,  gt=0 )
-    is_spicy: bool | None = Field(default=None )
 
 ######################
 # user creates reviews to certain dish from specific restaurant
@@ -103,7 +98,6 @@ class UserUpdate(BaseModel):
     username: str | None = Field(default=None, min_length=1, max_length=50)
     email: EmailStr | None = Field(default=None, max_length=120)
    
-
 class Token(BaseModel): 
     access_token: str
     token_type: str

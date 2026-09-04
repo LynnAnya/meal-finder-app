@@ -6,7 +6,7 @@ from sqlalchemy.orm import DeclarativeBase
 
 #db infrastructure 
 
-SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./dishRadar.db"
+SQLALCHEMY_DATABASE_URL = "sqlite+aiosqlite:///./mealFinder.db"
 
 engine = create_async_engine(
     SQLALCHEMY_DATABASE_URL,
