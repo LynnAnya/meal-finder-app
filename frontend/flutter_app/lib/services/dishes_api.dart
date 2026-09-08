@@ -3,6 +3,8 @@ import 'package:http/http.dart' as http;
 import '../core/network/api_client.dart';
 import '../core/network/network_exceptions.dart';
 import '../models/dish.dart';
+import '../models/compare.dart';
+
 
 class DishService {
   final ApiClient _apiClient;
@@ -93,6 +95,31 @@ class DishService {
               .toList();
         }
         return <Dish>[];
+      },
+    );
+  }
+
+  ///5. Request AI comparison summary
+  Future<CompareResponse> fetchCompareSummary({
+    required List<int> dishIds,
+    double? lat,
+    double? lon,
+  }) async {
+    final payload = CompareRequest(
+      dishIds: dishIds,
+      userLat: lat,
+      userLon: lon,
+    );
+
+    return await _apiClient.postJson<CompareResponse>(
+      path: '/dishes/compare-summary',
+      body: payload.toJson(),
+      endpointName: 'fetchCompareSummary',
+      onSuccess: (data) {
+        if (data is Map<String, dynamic>) {
+          return CompareResponse.fromJson(data);
+        }
+        throw Exception('Invalid server response for compare summary');
       },
     );
   }

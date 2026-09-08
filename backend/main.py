@@ -19,8 +19,9 @@ async def lifespan(_app: FastAPI):
     # startup
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
-    async with AsyncSessionLocal() as session:
-        await seed_data(session)
+
+    await seed_data()
+
     yield
     #shutdown
     await engine.dispose()

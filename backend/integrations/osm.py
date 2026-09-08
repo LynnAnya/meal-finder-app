@@ -111,7 +111,7 @@ async def fetch_nearby_osm_restaurants(
     }
 
     try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
+        async with httpx.AsyncClient(timeout=60.0) as client:
             response = await client.post(
                 OVERPASS_URL,
                 data={"data": query},
@@ -120,7 +120,7 @@ async def fetch_nearby_osm_restaurants(
             response.raise_for_status()
             payload = response.json()
     except httpx.TimeoutException:
-        logger.error("OSM Overpass API timed out after 30 seconds.")
+        logger.error("OSM Overpass API timed out after 60 seconds.")
         return []
     except httpx.HTTPStatusError as exc:
         logger.error(f"OSM Overpass API returned HTTP {exc.response.status_code}")

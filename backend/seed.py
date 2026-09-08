@@ -1,10 +1,12 @@
-# backend/seed.py
 import asyncio
 import random
 from sqlalchemy import select
 from database import AsyncSessionLocal, engine, Base
+from auth import hash_password
 import models
 from integrations.osm import fetch_nearby_osm_restaurants
+
+USER_HASH_PWD = hash_password("pw_hashed_123")  # Pre-hashed password for test users
 
 # -------------------------------------------------------------------------
 # Contextual Review Comment Pool for AI Grounding
@@ -45,7 +47,6 @@ REVIEW_DATA = {
         ("Decent taste, but I found the seasoning slightly inconsistent.", 3),
     ],
 }
-
 
 def _get_dish_reviews(dish_name: str) -> list[tuple[str, int]]:
     name_l = dish_name.lower()
@@ -219,11 +220,10 @@ def generate_venue_menu(v_name: str, v_type: str, cuisine: str | None) -> list[d
 
     return cleaned_menu
 
-
 # -------------------------------------------------------------------------
 # Database Seed Pipeline
 # -------------------------------------------------------------------------
-async def seed_database():
+async def seed_data():
     print("Connecting to database and verifying tables...")
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
@@ -236,18 +236,43 @@ async def seed_database():
             test_users = [
                 models.User(
                     username="alex_brisbane",
-                    email="alex@foodie.local",
-                    password_hash="pw_hashed_123",
+                    email="alex@foodie.com",
+                    password_hash=USER_HASH_PWD,
                 ),
                 models.User(
                     username="sam_westend",
-                    email="sam@foodie.local",
-                    password_hash="pw_hashed_123",
+                    email="sam@foodie.com",
+                    password_hash=USER_HASH_PWD,
                 ),
                 models.User(
                     username="charlie_bites",
-                    email="charlie@foodie.local",
-                    password_hash="pw_hashed_123",
+                    email="charlie@foodie.com",
+                    password_hash=USER_HASH_PWD,
+                ),
+                models.User(
+                username="taylor_foodie",
+                email="taylor@foodie.com",
+                password_hash=USER_HASH_PWD,
+                ),
+                models.User(
+                    username="jordan_bne",
+                    email="jordan@foodie.com",
+                    password_hash=USER_HASH_PWD,
+                ),
+                models.User(
+                    username="morgan_eats",
+                    email="morgan@foodie.com",
+                    password_hash=USER_HASH_PWD,
+                ),
+                models.User(
+                    username="casey_tastes",
+                    email="casey@foodie.com",
+                    password_hash=USER_HASH_PWD,
+                ),
+                models.User(
+                    username="riley_fork",
+                    email="riley@foodie.com",
+                    password_hash=USER_HASH_PWD,
                 ),
             ]
             session.add_all(test_users)
@@ -324,4 +349,4 @@ async def seed_database():
 
 
 if __name__ == "__main__":
-    asyncio.run(seed_database())
+    asyncio.run(seed_data())
