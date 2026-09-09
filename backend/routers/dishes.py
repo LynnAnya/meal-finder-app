@@ -1,4 +1,5 @@
 from typing import Annotated
+from config import settings
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -14,11 +15,11 @@ from schemas import (
     CompareRequest,
     CompareResponse,
 )
-
 from integrations.ai import ai_service
 from geo_utils import calculate_distance_meters, estimate_walk_minutes
 
 router = APIRouter()
+
 ###############
 # Dish activities 
 ###############
@@ -144,49 +145,47 @@ async def toggle_dish_favourite(
 
 # dishes compare - user can select 2 or 3 dishes to compare. 8/9/2026
 @router.post("/compare-summary", response_model=CompareResponse, status_code=status.HTTP_200_OK)
-async def compare_dishes_summary(
-    payload: CompareRequest,
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
+async def compare_dishes_summary(payload: CompareRequest,db: Annotated[AsyncSession, Depends(get_db)],):
     # 1. Fetch the dishes, their parent restaurant coordinates, and review comments
-    query = (
-        select(models.Dish)
-        .where(models.Dish.id.in_(payload.dish_ids))
-        .options(
-            joinedload(models.Dish.restaurant),
-            selectinload(models.Dish.reviews),
-        )
-    )
+    query = (select(models.Dish).where(models.Dish.id.in_(payload.dish_ids))
+            .options(joinedload(models.Dish.restaurant),selectinload(models.Dish.reviews),) )
     result = await db.execute(query)
-    dishes = result.scalars().all()
+    dishes = result.scalars().unique().all()
 
     if len(dishes) < 2:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="At least 2 valid dishes are required for comparison.",
-        )
+        raise HTTPException( status_code=status.HTTP_400_BAD_REQUEST,
+        detail="At least 2 valid dishes are required for comparison.",)
 
+    user_has_gps = payload.user_lat is not None and payload.user_lon is not None
+    calc_lat = payload.user_lat if user_has_gps else settings.default_city_lat
+    calc_lon = payload.user_lon if user_has_gps else settings.default_city_lon
     # 2. Extract metrics and calculate distance via user_lat & user_lon
     dish_summaries = []
     for d in dishes:
-        dist_m = None
-        walk_mins = None
         rest = d.restaurant
+        dist_m = None
 
-        # Match with restaurant lat and lon from your DB model
-        if (
-            payload.user_lat is not None
-            and payload.user_lon is not None
-            and rest
-            and rest.lat is not None
-            and rest.lon is not None
-        ):
-            dist_m = calculate_distance_meters(
-                payload.user_lat, payload.user_lon, rest.lat, rest.lon
-            )
+        if rest and rest.lat is not None and rest.lon is not None:
+            dist_m = calculate_distance_meters(calc_lat, calc_lon, rest.lat, rest.lon)
+
+        # Format human-readable distance & walk time 
+        if dist_m is None:
+            distance_label = "Unknown"
+            walk_label = "Unknown"
+        elif user_has_gps and dist_m < 50:
+            distance_label = "Inside or right at venue (<50m)"
+            walk_label = "0 mins (You are already here)"
+        elif user_has_gps:
             walk_mins = estimate_walk_minutes(dist_m)
+            distance_label = f"{dist_m}m away"
+            walk_label = f"{walk_mins} mins walk"
+        else:
+            # User GPS disabled: use CBD reference
+            walk_mins = estimate_walk_minutes(dist_m)
+            distance_label = f"{dist_m}m from {settings.default_city_name}"
+            walk_label = f"{walk_mins} mins walk from {settings.default_city_name}"
 
-        # Pull up to 5 text review comments for sentiment context
+        # Pull up to 5 non-empty text reviews
         review_comments = [r.comment for r in d.reviews if r.comment][:5]
 
         dish_summaries.append({
@@ -194,10 +193,12 @@ async def compare_dishes_summary(
             "restaurant_name": rest.name if rest else "Unknown",
             "price": f"${d.price:.2f}",
             "rating": d.average_rating,
-            "distance": f"{dist_m}m" if dist_m else "Unknown",
-            "walk_time": f"{walk_mins} mins walk" if walk_mins else "Unknown",
-            "customer_reviews": review_comments or ["No text reviews written yet."],
+            "distance": distance_label,
+            "walk_time": walk_label,
+            "customer_reviews": review_comments
+            or ["No text reviews written yet."],
         })
 
-    # 3. Call AI Service and return the generated CompareResponse
-    return await ai_service.generate_dish_comparison(dish_summaries)
+     # 3. Call AI Service and return variable for inspection
+    ai_result = await ai_service.generate_dish_comparison(dish_summaries)
+    return ai_result

@@ -79,8 +79,8 @@ class ReviewResponse(ReviewBase):
 ######################
 class CompareRequest(BaseModel):
     dish_ids: list[int] = Field(..., min_length=2, max_length=5)
-    user_lat: float | None = None
-    user_lon: float | None = None
+    user_lat: float | None  = Field(default=None, ge=-90.0, le=90.0)
+    user_lon: float | None =  Field(default=None, ge=-180.0, le=180.0)
 
 class CompareResponse(BaseModel):
     verdict: str = Field(description="2 sentences (35-50 words). Decisive summary to pick and why.")
