@@ -1,10 +1,13 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import '../models/dish.dart';
 import '../services/dishes_api.dart';
 import '../providers/fav_provider.dart';
 import '../providers/compare_provider.dart';
+import '../services/user_location.dart';
+import '../providers/location_provider.dart';
 import 'dish_detail_screen.dart';
 import 'profile_screen.dart';
 import 'compare_screen.dart';
@@ -45,6 +48,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final List<double> _ratingOptions = [0.0, 3.5, 4.0, 4.5];
   final Map<String, String> _sortOptions = {
     'default': 'Default',
+    'distance_asc': 'Distance: Nearest First',
     'price_asc': 'Price: Low to High',
     'price_desc': 'Price: High to Low',
     'rating_desc': 'Rating: Highest First',
@@ -54,8 +58,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   void initState() {
     super.initState();
     _fetchDishes();
-  }
 
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      ref.read(locationProvider.notifier).fetchLocationIfNeeded();
+    });
+
+  }
   @override
   void dispose() {
     _searchController.dispose();
@@ -98,9 +106,27 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     });
   }
 
-  List<Dish> _applySorting(List<Dish> dishes) {
+  List<Dish> _applySorting(List<Dish> dishes, Position? userPos) {
     final sortedList = List<Dish>.from(dishes);
     switch (_sortBy) {
+      case 'distance_asc':
+        if (userPos != null) {
+          sortedList.sort((a, b) {
+          final num distA = (a.lat != null && a.lon != null)
+              ? UserLocationService.calculateDistance(
+                  userLat: userPos.latitude,userLng: userPos.longitude,
+                  targetLat: a.lat!,targetLng: a.lon!,
+                ) : double.infinity;
+
+          final num distB = (b.lat != null && b.lon != null)
+              ? UserLocationService.calculateDistance(
+                  userLat: userPos.latitude, userLng: userPos.longitude,
+                  targetLat: b.lat!,targetLng: b.lon!,
+                ) : double.infinity;
+          return distA.compareTo(distB);
+          });
+        }
+        break;
       case 'price_asc':
         sortedList.sort((a, b) => a.price.compareTo(b.price));
         break;
@@ -110,6 +136,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       case 'rating_desc':
         sortedList.sort((a, b) => b.rating.compareTo(a.rating));
         break;
+      
       default:
         break;
     }
@@ -143,11 +170,11 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ],
     );
   }
-
+  
   @override
   Widget build(BuildContext context) {
     final selectedForCompare = ref.watch(compareProvider);
-
+    final userPos = ref.watch(locationProvider) ?? UserLocationService.defaultLocation;
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
@@ -213,7 +240,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ),
                 ),
               ),
-
               // 2. Expandable Filters & Sort Area
               Theme(
                 data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
@@ -284,7 +310,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
               ),
-
               // 3. Results Single Column List (Tighter Spacing)
               Expanded(
                 child: FutureBuilder<List<Dish>>(
@@ -320,8 +345,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         ),
                       );
                     }
-
-                    final dishes = _applySorting(snapshot.data!);
+                    final dishes = _applySorting(snapshot.data!, userPos);
 
                     return ListView.builder(
                       physics: const BouncingScrollPhysics(),
@@ -333,7 +357,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       itemCount: dishes.length,
                       itemBuilder: (context, index) {
-                        return _buildDishCard(dishes[index], selectedForCompare);
+                        return _buildDishCard(dishes[index], selectedForCompare, userPos);
                       },
                     );
                   },
@@ -341,7 +365,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ),
             ],
           ),
-
           // Floating Compare Action Banner
           if (selectedForCompare.isNotEmpty)
             Positioned(
@@ -381,7 +404,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
-
   Widget _buildDoodleChip({required String label, required bool isSelected, required VoidCallback onTap}) {
     return GestureDetector(
       onTap: onTap,
@@ -405,7 +427,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
-
   Widget _buildSortFilter() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
@@ -431,7 +452,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
-
   Widget _buildPriceFilter() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
@@ -472,7 +492,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
-
   Widget _buildRatingFilter() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
@@ -498,7 +517,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
-
   Widget _buildCategoryFilter() {
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 6.0),
@@ -531,13 +549,25 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       ),
     );
   }
-
   // --- 1-Column Horizontal Card Layout ---
-  Widget _buildDishCard(Dish dish, List<Dish> selectedDishes) {
+  Widget _buildDishCard(Dish dish, List<Dish> selectedDishes, Position? userPos) {
     final city = _extractCity(dish.restaurantAddress);
+
+    String? distanceText;
+    if (userPos != null && dish.lat != null && dish.lon != null) {
+      final meters = UserLocationService.calculateDistance(
+        userLat: userPos.latitude,
+        userLng: userPos.longitude,
+        targetLat: dish.lat!,
+        targetLng: dish.lon!,
+      );
+      distanceText = UserLocationService.formatDistance(meters);
+    }
+
     final restaurantInfo = [
       if (dish.restaurantName != null && dish.restaurantName!.isNotEmpty) dish.restaurantName,
       if (city.isNotEmpty) city,
+      if (distanceText != null && distanceText.isNotEmpty) distanceText,
     ].join(' • ');
 
     final favSet = ref.watch(favouritesProvider).value ?? <int>{};
@@ -587,7 +617,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                               ),
                       ),
                     ),
-
                     // 🔘 Top-Left Circular Selection Indicator (Muted Gray when maxed out, no snackbar)
                     Positioned(
                       top: 5,
@@ -663,9 +692,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           ],
                         ),
                       ],
-
                       const SizedBox(height: 8),
-
                       // Side-by-Side Badges: [Price Badge] + [Rating Badge]
                       Row(
                         children: [
@@ -708,7 +735,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               ],
             ),
           ),
-
           // Top-Right Floating Heart Button
           Positioned(
             top: 6,

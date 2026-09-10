@@ -40,6 +40,8 @@ class DishResponse(DishBase):
     restaurant_id: int = Field(validation_alias=AliasPath("restaurant", "id"))
     restaurant_name: str = Field(validation_alias=AliasPath("restaurant", "name"))
     restaurant_address: str | None = Field(validation_alias=AliasPath("restaurant", "address"))
+    lat: float | None = Field(default=None, validation_alias=AliasPath("restaurant", "lat"))
+    lon: float | None = Field(default=None, validation_alias=AliasPath("restaurant", "lon"))
 # specific dish 
 class DishDetailResponse(DishResponse):
     reviews: list[ReviewResponse] = Field(default=[])

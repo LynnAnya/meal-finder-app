@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import '../models/dish.dart';
 import '../models/compare.dart';
 import '../providers/compare_provider.dart';
+import '../providers/location_provider.dart';
 import '../services/dishes_api.dart';
+import '../services/user_location.dart';
 import 'dish_detail_screen.dart';
 
 class CompareScreen extends ConsumerStatefulWidget {
@@ -67,11 +70,17 @@ class _CompareScreenState extends ConsumerState<CompareScreen> {
 
     try {
       final dishIds = dishes.map((d) => d.id).toList();
-      // Placeholder coordinates for now; will hook to Geolocator later
+
+      // Read location state from Riverpod
+      // If user denied GPS or coordinates are null, send null to let backend apply default city
+      final rawPosition = ref.read(locationProvider);
+      final double? userLat = rawPosition?.latitude;
+      final double? userLon = rawPosition?.longitude;
+
       final response = await DishService().fetchCompareSummary(
         dishIds: dishIds,
-        lat: null,
-        lon: null,
+        lat: userLat,
+        lon: userLon,
       );
 
       if (mounted) {
@@ -92,8 +101,11 @@ class _CompareScreenState extends ConsumerState<CompareScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🎯 Watch Riverpod compareProvider: live sync with HomeScreen
+    // 🎯 Live sync with HomeScreen compare selection
     final selectedDishes = ref.watch(compareProvider);
+
+    // 🎯 Watch user location (falling back safely to Brisbane CBD if GPS denied)
+    final Position userPos = ref.watch(locationProvider) ?? UserLocationService.defaultLocation;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -158,7 +170,7 @@ class _CompareScreenState extends ConsumerState<CompareScreen> {
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: selectedDishes.map((dish) {
-                        return _buildDishColumn(dish);
+                        return _buildDishColumn(dish, userPos);
                       }).toList(),
                     ),
                   ),
@@ -205,8 +217,23 @@ class _CompareScreenState extends ConsumerState<CompareScreen> {
     );
   }
 
-  // Individual Comparison Column Card
-  Widget _buildDishColumn(Dish dish) {
+  // Individual Comparison Column Card with Distance Row
+  Widget _buildDishColumn(Dish dish, Position userPos) {
+    // Calculate distance for this column item
+    String distanceText = '-';
+    if (dish.lat != null && dish.lon != null) {
+      final meters = UserLocationService.calculateDistance(
+        userLat: userPos.latitude,
+        userLng: userPos.longitude,
+        targetLat: dish.lat!,
+        targetLng: dish.lon!,
+      );
+      final formatted = UserLocationService.formatDistance(meters);
+      if (formatted.isNotEmpty) {
+        distanceText = formatted;
+      }
+    }
+
     return Container(
       width: 175,
       margin: const EdgeInsets.only(right: 14.0, bottom: 6.0),
@@ -230,7 +257,6 @@ class _CompareScreenState extends ConsumerState<CompareScreen> {
               GestureDetector(
                 behavior: HitTestBehavior.opaque,
                 onTap: () {
-                  // Unchecking removes from RAM and syncs with HomeScreen
                   ref.read(compareProvider.notifier).toggleDish(dish);
                 },
                 child: Container(
@@ -271,7 +297,7 @@ class _CompareScreenState extends ConsumerState<CompareScreen> {
                     ? Image.network(
                         dish.imageUrl!,
                         fit: BoxFit.cover,
-                        errorBuilder: (_, __, ___) => _buildPlaceholderImage(),
+                        errorBuilder: (_, _, _) => _buildPlaceholderImage(),
                       )
                     : _buildPlaceholderImage(),
               ),
@@ -354,14 +380,14 @@ class _CompareScreenState extends ConsumerState<CompareScreen> {
           ),
           const SizedBox(height: 10),
 
-          // Row 7: Distance Placeholder
+          // Row 7: Calculated Live Distance
           Text(
             'Distance',
             style: TextStyle(color: textMuted, fontSize: 11, fontWeight: FontWeight.w600),
           ),
           const SizedBox(height: 2),
           Text(
-            '-',
+            distanceText,
             style: TextStyle(color: textMain, fontSize: 13, fontWeight: FontWeight.w600),
           ),
         ],

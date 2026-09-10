@@ -7,14 +7,12 @@ class Dish {
   final double price;
   final double rating;
   final String menuCategory;
-  final bool isSpicy;
-  final String? description;
   final String? imageUrl;
-  
-  // Restaurant Info from FastAPI Flattened Response
   final int? restaurantId;
   final String? restaurantName;
   final String? restaurantAddress;
+  final double? lat;
+  final double? lon;
 
   const Dish({
     required this.id,
@@ -22,27 +20,27 @@ class Dish {
     required this.price,
     required this.rating,
     required this.menuCategory,
-    this.isSpicy = false,
-    this.description,
     this.imageUrl,
     this.restaurantId,
     this.restaurantName,
     this.restaurantAddress,
+    this.lat,
+    this.lon,
   });
 
   factory Dish.fromJson(Map<String, dynamic> json) {
     return Dish(
-      id: json['dish_id'] as int,
-      name: json['dish_name'] as String? ?? 'Unknown Dish',
+      id: json['dish_id'] ?? json['id'] ?? 0,
+      name: json['dish_name'] ?? json['name'] ?? 'Unknown Dish',
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
-      rating: (json['average_rating'] as num?)?.toDouble() ?? 0.0,
-      menuCategory: json['menu_category'] as String? ?? 'Uncategorized',
-      isSpicy: json['is_spicy'] as bool? ?? false,
-      description: json['description'] as String?,
+      rating: (json['average_rating'] ?? json['rating'] as num?)?.toDouble() ?? 0.0,
+      menuCategory: json['menu_category'] as String? ?? 'Mains',
       imageUrl: json['image_url'] as String?,
-      restaurantId: json['restaurant_id'] as int?,
-      restaurantName: json['restaurant_name'] as String?,
-      restaurantAddress: json['restaurant_address'] as String?,
+      restaurantId: json['restaurant_id'] ?? json['restaurant']?['id'],
+      restaurantName: json['restaurant_name'] ?? json['restaurant']?['name'],
+      restaurantAddress: json['restaurant_address'] ?? json['restaurant']?['address'],
+      lat: ((json['lat'] ?? json['restaurant']?['lat']) as num?)?.toDouble(),
+      lon: ((json['lon'] ?? json['restaurant']?['lon']) as num?)?.toDouble(),
     );
   }
 
@@ -53,12 +51,12 @@ class Dish {
       'price': price,
       'average_rating': rating,
       'menu_category': menuCategory,
-      'is_spicy': isSpicy,
-      'description': description,
       'image_url': imageUrl,
       'restaurant_id': restaurantId,
       'restaurant_name': restaurantName,
       'restaurant_address': restaurantAddress,
+      'lat': lat,
+      'lon': lon,
     };
   }
 }
@@ -73,43 +71,41 @@ class DishDetail extends Dish {
     required super.price,
     required super.rating,
     required super.menuCategory,
-    super.isSpicy = false,
-    super.description,
     super.imageUrl,
     super.restaurantId,
     super.restaurantName,
     super.restaurantAddress,
+    super.lat,
+    super.lon,
     required this.reviews,
     this.restaurant,
   });
 
   factory DishDetail.fromJson(Map<String, dynamic> json) {
-    // 1. Parse reviews
-    var rawReviews = json['reviews'] as List? ?? [];
-    List<Review> parsedReviews =
-        rawReviews.map((r) => Review.fromJson(r)).toList();
 
-    // 2. Parse restaurant
-    Restaurant? parsedRestaurant = json['restaurant'] != null
-        ? Restaurant.fromJson(json['restaurant'])
+    final rawReviews = json['reviews'] as List? ?? [];
+    final parsedReviews = rawReviews
+        .map((r) => Review.fromJson(r as Map<String, dynamic>))
+        .toList();
+
+    final parsedRestaurant = json['restaurant'] != null
+        ? Restaurant.fromJson(json['restaurant'] as Map<String, dynamic>)
         : null;
 
-    // 3. Return the fully populated object (All missing fields added below!)
     return DishDetail(
-      id: json['id'] ?? json['dish_id'] ?? 0,
-      name: json['name'] ?? json['dish_name'] ?? '',
-      price: (json['price'] as num?)?.toDouble() ?? 0.0, // 👈 WAS MISSING
-      rating: (json['average_rating'] as num?)?.toDouble() ?? 
-              (json['rating'] as num?)?.toDouble() ?? 0.0,
-      menuCategory: json['menu_category'] ?? '',         // 👈 WAS MISSING
-      isSpicy: json['is_spicy'] ?? false,                // 👈 WAS MISSING
-      description: json['description'],                  // 👈 WAS MISSING
-      imageUrl: json['imageUrl'] ?? json['image_url'],   // 👈 WAS MISSING
-      restaurantId: json['restaurant_id'] ?? json['restaurant']?['id'],
-      restaurantName: json['restaurant_name'] ?? json['restaurant']?['name'],
-      restaurantAddress: json['restaurant_address'] ?? json['restaurant']?['address'],
+      id: json['dish_id'] ?? json['id'] ?? 0,
+      name: json['dish_name'] ?? json['name'] ?? '',
+      price: (json['price'] as num?)?.toDouble() ?? 0.0,
+      rating: (json['average_rating'] ?? json['rating'] as num?)?.toDouble() ?? 0.0,
+      menuCategory: json['menu_category'] as String? ?? 'Mains',
+      imageUrl: json['image_url'] as String?,
+      restaurantId: json['restaurant_id'] ?? parsedRestaurant?.id,
+      restaurantName: json['restaurant_name'] ?? parsedRestaurant?.name,
+      restaurantAddress: json['restaurant_address'] ?? parsedRestaurant?.address,
+      lat: ((json['lat'] ?? parsedRestaurant?.lat) as num?)?.toDouble(),
+      lon: ((json['lon'] ?? parsedRestaurant?.lon) as num?)?.toDouble(),
       reviews: parsedReviews,
-      restaurant: parsedRestaurant, 
+      restaurant: parsedRestaurant,
     );
   }
 }

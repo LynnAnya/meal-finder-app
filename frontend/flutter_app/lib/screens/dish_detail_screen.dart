@@ -1,13 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart'; 
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:geolocator/geolocator.dart';
 import '../models/dish.dart';
-import '../models/review.dart'; 
-import '../providers/user_provider.dart'; 
+import '../models/review.dart';
+import '../providers/user_provider.dart';
 import '../providers/fav_provider.dart';
-import '../services/dishes_api.dart'; 
+import '../providers/location_provider.dart';
+import '../services/dishes_api.dart';
 import '../services/reviews_api.dart';
+import '../services/user_location.dart';
 
-// 🎯 2. Changed to ConsumerStatefulWidget to access Riverpod state
 class DishDetailScreen extends ConsumerStatefulWidget {
   final int dishId;
   const DishDetailScreen({super.key, required this.dishId});
@@ -15,6 +17,7 @@ class DishDetailScreen extends ConsumerStatefulWidget {
   @override
   ConsumerState<DishDetailScreen> createState() => _DishDetailScreenState();
 }
+
 class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
   // 🎨 Exact Same Theme Colors
   final Color bgColor = const Color(0xFFFEFDF7);
@@ -32,7 +35,7 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
     _dishDetailFuture = DishService().fetchDishDetail(widget.dishId);
   }
 
-  // 🖍️ Reusing the playful hard-shadow doodle decoration
+  // 🖍️ Hard-shadow doodle decoration
   BoxDecoration _doodleDecoration({Color? color, double borderRadius = 12.5}) {
     return BoxDecoration(
       color: color ?? cardColor,
@@ -47,12 +50,10 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
       ],
     );
   }
-  //  Write/Edit Review Bottom Sheet Overlay
-  //  3. Added optional existingReview parameter
+
+  // Write/Edit Review Bottom Sheet Overlay
   void _showWriteReviewSheet(BuildContext context, int dishId, {Review? existingReview}) {
     final bool isEditing = existingReview != null;
-    
-    //  4. Pre-fill with existing data if editing
     int selectedRating = existingReview?.rating ?? 5;
     bool isSubmitting = false;
     final TextEditingController commentController = TextEditingController(
@@ -61,12 +62,12 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
 
     showModalBottomSheet(
       context: context,
-      isScrollControlled: true, // Allows the sheet to move up when the keyboard appears
+      isScrollControlled: true,
       backgroundColor: Colors.transparent,
       builder: (context) {
         return Padding(
           padding: EdgeInsets.only(
-            bottom: MediaQuery.of(context).viewInsets.bottom, // Prevent keyboard from hiding the text field
+            bottom: MediaQuery.of(context).viewInsets.bottom,
           ),
           child: StatefulBuilder(
             builder: (BuildContext context, StateSetter setModalState) {
@@ -78,7 +79,7 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                   border: Border.all(color: outlineColor, width: 2),
                 ),
                 child: Column(
-                  mainAxisSize: MainAxisSize.min, // Wraps content height
+                  mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
@@ -86,8 +87,6 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                       style: TextStyle(color: textMain, fontSize: 22, fontWeight: FontWeight.w700),
                     ),
                     const SizedBox(height: 16),
-                    
-                    // Interactive Star Rating
                     Row(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: List.generate(5, (index) {
@@ -97,17 +96,17 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                             color: const Color(0xFFFFB01D),
                             size: 40,
                           ),
-                          onPressed: isSubmitting ? null : () {
-                            setModalState(() {
-                              selectedRating = index + 1;
-                            });
-                          },
+                          onPressed: isSubmitting
+                              ? null
+                              : () {
+                                  setModalState(() {
+                                    selectedRating = index + 1;
+                                  });
+                                },
                         );
                       }),
                     ),
                     const SizedBox(height: 16),
-
-                    // Review Text Field
                     TextField(
                       controller: commentController,
                       maxLines: 3,
@@ -131,8 +130,6 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                       ),
                     ),
                     const SizedBox(height: 24),
-
-                    // Submit Button
                     GestureDetector(
                       onTap: isSubmitting
                           ? null
@@ -143,27 +140,25 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                                 isSubmitting = true;
                               });
                               try {
-                                //  5. Update vs Create
                                 if (isEditing) {
                                   await ReviewService().updateReview(
-                                    reviewId: existingReview.reviewId, 
-                                    rating: selectedRating, 
+                                    reviewId: existingReview.reviewId,
+                                    rating: selectedRating,
                                     comment: comment,
                                   );
                                 } else {
                                   await ReviewService().createReview(
-                                    dishId: dishId, 
-                                    rating: selectedRating, 
+                                    dishId: dishId,
+                                    rating: selectedRating,
                                     comment: comment,
                                   );
                                 }
-                                
+
                                 if (context.mounted) {
                                   Navigator.pop(context);
-                                  
                                   ScaffoldMessenger.of(context).showSnackBar(
                                     SnackBar(
-                                      content: Text(isEditing ? 'Review updated!' : 'Review submitted!s'),
+                                      content: Text(isEditing ? 'Review updated!' : 'Review submitted!'),
                                       backgroundColor: outlineColor,
                                       behavior: SnackBarBehavior.floating,
                                       shape: RoundedRectangleBorder(
@@ -171,7 +166,6 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                                       ),
                                     ),
                                   );
-                                  // Refresh the page data to show the new review
                                   setState(() {
                                     _dishDetailFuture = DishService().fetchDishDetail(widget.dishId);
                                   });
@@ -180,14 +174,18 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                                 if (context.mounted) {
                                   final errorString = e.toString().toLowerCase();
                                   String displayMessage = 'Oops! Failed to submit: $e';
-                                  if (errorString.contains('user not found') || errorString.contains('401')){
+                                  if (errorString.contains('user not found') || errorString.contains('401')) {
                                     Navigator.pop(context);
                                     displayMessage = 'Please log in to review.';
                                   } else if (errorString.contains('already reviewed') || errorString.contains('409')) {
-                                    setModalState(() { isSubmitting = false; });
+                                    setModalState(() {
+                                      isSubmitting = false;
+                                    });
                                     displayMessage = 'You have already reviewed this dish! 🍽️';
                                   } else {
-                                    setModalState(() { isSubmitting = false; });
+                                    setModalState(() {
+                                      isSubmitting = false;
+                                    });
                                     displayMessage = 'Oops! Something went wrong. Please try again. ⚠️';
                                   }
 
@@ -223,8 +221,8 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                             : Text(
                                 isEditing ? 'Update Review' : 'Submit Review',
                                 style: TextStyle(
-                                  color: isSubmitting ? textMuted : textMain, 
-                                  fontSize: 16, 
+                                  color: isSubmitting ? textMuted : textMain,
+                                  fontSize: 16,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -239,13 +237,14 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
       },
     );
   }
+
   @override
   Widget build(BuildContext context) {
-    // 🎯 6. Read the current logged-in user from Riverpod state
     final userState = ref.watch(userProvider);
     final currentUser = userState.value;
     final favSet = ref.watch(favouritesProvider).value ?? <int>{};
     final isFav = favSet.contains(widget.dishId);
+    final Position userPos = ref.watch(locationProvider) ?? UserLocationService.defaultLocation;
 
     return Scaffold(
       backgroundColor: bgColor,
@@ -266,7 +265,27 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
           }
 
           final dish = snapshot.data!;
-          // 🎯 7. Check if this specific user has already reviewed the dish
+          // Calculate distance 
+          String? distanceBadge;
+          if (dish.lat != null && dish.lon != null) {
+            final meters = UserLocationService.calculateDistance(
+              userLat: userPos.latitude,
+              userLng: userPos.longitude,
+              targetLat: dish.lat!,
+              targetLng: dish.lon!,
+            );
+            distanceBadge = UserLocationService.formatDistance(meters);
+          }
+
+          // Combine Address with Distance: "Address • 450m"
+          final addressWithDistance = [
+            if (dish.restaurantAddress != null && dish.restaurantAddress!.isNotEmpty)
+              dish.restaurantAddress,
+            if (distanceBadge != null && distanceBadge.isNotEmpty)
+              distanceBadge,
+          ].join(' • ');
+
+          // Check existing review
           Review? existingReview;
           if (currentUser != null) {
             for (final r in dish.reviews) {
@@ -287,7 +306,6 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                 // 1. Top Image with Doodle Border
                 Stack(
                   children: [
-                    // The Image Container
                     Container(
                       width: double.infinity,
                       height: 250,
@@ -302,21 +320,20 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                               ),
                       ),
                     ),
-
-                    // ❤️ Floating Heart Button on Top-Right Corner
                     Positioned(
                       top: 12,
                       right: 12,
                       child: GestureDetector(
                         behavior: HitTestBehavior.opaque,
-                        onTap: () {ref.read(favouritesProvider.notifier).toggle(widget.dishId);
+                        onTap: () {
+                          ref.read(favouritesProvider.notifier).toggle(widget.dishId);
                         },
                         child: Padding(
                           padding: const EdgeInsets.all(8.0),
                           child: Icon(
                             isFav ? Icons.favorite_rounded : Icons.favorite_border_rounded,
                             color: isFav ? Colors.redAccent : textMain,
-                            size: 28, // Clean heart icon with no circular box/border
+                            size: 28,
                           ),
                         ),
                       ),
@@ -324,7 +341,8 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                   ],
                 ),
                 const SizedBox(height: 20),
-                // 2. Dish Info (Unboxed Style)
+
+                // 2. Dish Info (Price, Rating, Category - isSpicy & description removed)
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4.0),
                   child: Column(
@@ -376,26 +394,15 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                               style: TextStyle(color: textMain, fontSize: 12, fontWeight: FontWeight.w600),
                             ),
                           ),
-                          if (dish.isSpicy) ...[
-                            const SizedBox(width: 8),
-                            const Text('🌶️', style: TextStyle(fontSize: 16)),
-                          ]
                         ],
                       ),
-                      if (dish.description != null && dish.description!.isNotEmpty) ...[
-                        const SizedBox(height: 12),
-                        Text(
-                          dish.description!,
-                          style: TextStyle(color: textMuted, fontSize: 14, height: 1.4),
-                        ),
-                      ]
                     ],
                   ),
                 ),
                 const SizedBox(height: 20),
 
-                // 3. Restaurant Details (Unboxed Style)
-               Padding(
+                // 3. Restaurant Details + Distance Text
+                Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 4.0),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -405,9 +412,20 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                         style: TextStyle(color: textMain, fontSize: 16, fontWeight: FontWeight.w600),
                       ),
                       const SizedBox(height: 4),
-                      Text(
-                        dish.restaurantAddress ?? 'No address provided',
-                        style: TextStyle(color: textMuted, fontSize: 14),
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Icon(Icons.location_on_outlined, color: textMuted, size: 16),
+                          const SizedBox(width: 4),
+                          Expanded(
+                            child: Text(
+                              addressWithDistance.isNotEmpty
+                                  ? addressWithDistance
+                                  : 'No address provided',
+                              style: TextStyle(color: textMuted, fontSize: 14),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
@@ -429,20 +447,17 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                     GestureDetector(
                       onTap: () {
                         if (currentUser == null) {
-                           // Prompt login if user tries to review but isn't logged in
-                           ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Please log in to leave a review!')),
-                           );
-                           return;
+                          ScaffoldMessenger.of(context).showSnackBar(
+                            const SnackBar(content: Text('Please log in to leave a review!')),
+                          );
+                          return;
                         }
-                        // 🎯 8. Open modal and pass existingReview (if they have one)
                         _showWriteReviewSheet(context, widget.dishId, existingReview: existingReview);
                       },
                       child: Container(
                         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                         decoration: _doodleDecoration(color: accentColor, borderRadius: 20),
                         child: Text(
-                          // 🎯 9. Dynamic Button Label!
                           hasReviewed ? 'Edit Review' : '+ Write Review',
                           style: TextStyle(color: textMain, fontSize: 14, fontWeight: FontWeight.w600),
                         ),
@@ -523,7 +538,7 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                       );
                     },
                   ),
-                const SizedBox(height: 32), // Bottom padding
+                const SizedBox(height: 32),
               ],
             ),
           );

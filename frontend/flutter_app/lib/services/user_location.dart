@@ -1,7 +1,21 @@
+// lib/services/location_service.dart
 import 'dart:async';
 import 'package:geolocator/geolocator.dart';
 
 class UserLocationService {
+  static final Position defaultLocation = Position(
+    latitude: -27.4698,
+    longitude: 153.0251,
+    timestamp: DateTime.now(),
+    accuracy: 0.0,
+    altitude: 0.0,
+    heading: 0.0,
+    speed: 0.0,
+    speedAccuracy: 0.0,
+    altitudeAccuracy: 0.0,
+    headingAccuracy: 0.0,
+  );
+
   static Future<Position?> determinePosition() async {
     try {
       // 1. Check if device hardware GPS switch is turned on
@@ -12,6 +26,7 @@ class UserLocationService {
 
       // 2. Check existing OS permission status
       LocationPermission permission = await Geolocator.checkPermission();
+      
       // If undecided, trigger the native OS permission prompt
       if (permission == LocationPermission.denied) {
         permission = await Geolocator.requestPermission();
@@ -19,16 +34,15 @@ class UserLocationService {
           return null;
         }
       }
-
       // If user permanently blocked location access
       if (permission == LocationPermission.deniedForever) {
         return null;
       }
+
       // 3. Hardware GPS read wrapped with a safety timeout (8 seconds)
-      // Prevents app from freezing indefinitely underground or in dead zones
       return await Geolocator.getCurrentPosition(
         locationSettings: const LocationSettings(
-          accuracy: LocationAccuracy.medium, // Battery-efficient for food discovery
+          accuracy: LocationAccuracy.medium, 
           timeLimit: Duration(seconds: 8),
         ),
       );
@@ -37,7 +51,6 @@ class UserLocationService {
     }
   }
 
-  /// Calculates straight-line distance in meters between two coordinates
   static int calculateDistance({
     required double userLat,
     required double userLng,
@@ -52,7 +65,7 @@ class UserLocationService {
     ).round();
   }
 
-  /// Formats raw meters into clean UI badges (e.g., "350m" or "1.2km").
+  /// Formats raw meters (e.g., "350m" or "1.2km")
   static String formatDistance(int? meters) {
     if (meters == null) return '';
     if (meters < 1000) return '${meters}m';
