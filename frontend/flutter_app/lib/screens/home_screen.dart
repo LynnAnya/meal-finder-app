@@ -186,7 +186,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Text(
-              'Find your next meal 🍔',
+              'Find your next meal',
               style: TextStyle(color: textMain, fontWeight: FontWeight.w700, fontSize: 21),
             ),
             const SizedBox(height: 3),

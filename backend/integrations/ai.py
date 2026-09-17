@@ -1,7 +1,8 @@
 import json
+import asyncio
 from fastapi import HTTPException, status
 from google import genai
-from google.genai import types
+from google.genai import types, errors
 from config import settings
 from schemas import CompareResponse
 
@@ -24,36 +25,61 @@ OUTPUT RULES:
 """
 
 class AIService:
-  @staticmethod
-  def _get_client() -> genai.Client:
-    return genai.Client(api_key=settings.gemini_api_key.get_secret_value())
+    def __init__(self):
+        # Build the client once and bake retry behavior into it,
+        # instead of hand-rolling backoff logic per call.
+        retry_options = types.HttpRetryOptions(
+            attempts=2,
+            initial_delay=1.0,
+            max_delay=4.0,
+            http_status_codes=[408, 429, 500, 502, 503, 504],
+        )
+        self._client = genai.Client(
+            api_key=settings.gemini_api_key.get_secret_value(),
+            http_options=types.HttpOptions(retry_options=retry_options),
+        )
 
-  async def generate_dish_comparison( self, dish_summaries: list[dict]) -> CompareResponse:
-    client = self._get_client()
+    async def generate_dish_comparison(self, dish_summaries: list[dict]) -> CompareResponse:
+        user_content_payload = (
+            "Here are the candidate dishes to compare:\n"
+            f"{json.dumps(dish_summaries, indent=2)}"
+        )
 
-    user_content_payload = (
-        "Here are the candidate dishes to compare:\n"
-        f"{json.dumps(dish_summaries, indent=2)}"
-    )
+        try:
+            # chats.create + send_message is the SDK's forward-compatible
+            # pattern (generate_content direct calls are getting deprecated
+            # for anything touching AFC in the next major version).
+            chat = self._client.aio.chats.create(
+                model="gemini-3.8-flash",
+                config=types.GenerateContentConfig(
+                    system_instruction=FOOD_SYSTEM_INSTRUCTION,
+                    response_mime_type="application/json",
+                    response_schema=CompareResponse,
+                    temperature=0.7,
+                ),
+            )
+            response = await asyncio.wait_for(chat.send_message(user_content_payload), timeout=15)
+            return response.parsed
+        
+        except asyncio.TimeoutError as exc:
+          raise HTTPException(
+              status_code=status.HTTP_504_GATEWAY_TIMEOUT,
+              detail="AI took too long — try again.",
+          ) from exc
 
-    try:
-      response = await client.aio.models.generate_content(
-          model="gemini-3.8-flash",
-          contents=user_content_payload,
-          config=types.GenerateContentConfig(
-              system_instruction=FOOD_SYSTEM_INSTRUCTION,
-              response_mime_type="application/json",
-              response_schema=CompareResponse,
-              temperature=0.7,
-          ),
-      )
-      return response.parsed
+        except errors.ServerError as exc:
+            # Retries already exhausted at this point — Gemini is just overloaded.
+            print(f"❌ Gemini overloaded after retries: {exc}")
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Our AI recommender is a bit busy — try again in a few seconds.",
+            ) from exc
 
-    except Exception as exc:
-      print(f"❌ Gemini Error: {exc}")  
-      raise HTTPException(
-          status_code=status.HTTP_502_BAD_GATEWAY,
-          detail="Failed to generate AI dish comparison summary. Please try again.",
-      ) from exc
+        except Exception as exc:
+            print(f"❌ Gemini Error: {exc}")
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Failed to generate AI dish comparison summary. Please try again.",
+            ) from exc
 
 ai_service = AIService()

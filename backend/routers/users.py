@@ -2,6 +2,8 @@ from datetime import timedelta
 from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile
 from fastapi.security import OAuth2PasswordRequestForm
+from fastapi_pagination import Page
+from fastapi_pagination.ext.sqlalchemy import paginate
 from PIL import UnidentifiedImageError
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -33,14 +35,15 @@ router = APIRouter()
 # user activities 
 ##############
 # get all current user's reviews. ----DONE
-@router.get("/me/reviews", response_model=list[ReviewResponse])
+@router.get("/me/reviews", response_model=Page[ReviewResponse])
 async def get_user_reviews(current_user: CurrentUser, db: Annotated[AsyncSession, Depends(get_db)], ):
    
-    result = await db.execute(select(models.Review)
-                              .options(selectinload(models.Review.reviewer))
-                              .where(models.Review.user_id == current_user.id))
-    reviews = result.scalars().all()
-    return reviews
+    query = (select(models.Review)
+        .options(selectinload(models.Review.reviewer))
+        .where(models.Review.user_id == current_user.id)
+        .order_by(models.Review.id.desc())
+    )
+    return await paginate(db, query)
 
 # get all favourite dishes feature. ----DONE
 @router.get("/me/favourites", response_model=list[DishResponse])
@@ -52,10 +55,9 @@ async def get_favourites(current_user: CurrentUser, db: Annotated[AsyncSession, 
         .where(models.User.id == current_user.id)
     )
     user = result.scalar_one_or_none()
-
     return user.favourite_dishes
 
-# 2. REMOVE SPECIFIC FAVOURITE (Swipe to delete from Favorites screen) --DONE
+# REMOVE SPECIFIC FAVOURITE (Swipe to delete from Favorites screen) --DONE
 @router.delete("/me/favourites/{dish_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def remove_favourite(
     dish_id: int,
@@ -241,7 +243,7 @@ async def delete_user_picture(
     return current_user
 
 
-#user favourite dishes 
+#user favourite dishes --
 @router.get("/me/favourites", response_model=list[DishResponse], name="favourite_dishes")
 async def get_user_favourites(current_user: CurrentUser,db: Annotated[AsyncSession, Depends(get_db)]):    
     query = (

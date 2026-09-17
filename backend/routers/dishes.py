@@ -1,6 +1,8 @@
 from typing import Annotated
 from config import settings
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi_pagination import Page
+from fastapi_pagination.ext.sqlalchemy import paginate
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
@@ -24,15 +26,16 @@ router = APIRouter()
 # Dish activities 
 ###############
 # all dishes (not details, before user click). [[-not used yet -search can show all too]] ----DONE
-@router.get("", response_model=list[DishResponse], name="dishes")
-async def get_home(db: Annotated[AsyncSession, Depends(get_db)]
-):
-    result = await db.execute(select(models.Dish).options(joinedload(models.Dish.restaurant)))
-    dishes = result.scalars().all()
-    return dishes
+@router.get("", response_model=Page[DishResponse], name="dishes")
+async def get_home(db: Annotated[AsyncSession, Depends(get_db)] ):
+    query = (select(models.Dish)
+        .options(joinedload(models.Dish.restaurant))
+        .order_by(models.Dish.id.desc())
+    )
+    return await paginate(db, query)
 
 #user search/filter dish -> get list ---DONE
-@router.get("/search", response_model=list[DishResponse])
+@router.get("/search", response_model=Page[DishResponse])
 async def get_search_dishes(
     db: Annotated[AsyncSession, Depends(get_db)],
     q: Annotated[str | None, Query(description="Search dish name")] = None,
@@ -55,9 +58,7 @@ async def get_search_dishes(
     if menu_category:
        query = query.where(models.Dish.menu_category.ilike(menu_category.strip()))
 
-    result = await db.execute(query)
-    dishes = result.scalars().unique().all()
-    return dishes
+    return await paginate(db, query.order_by(models.Dish.id.desc()))
 
 # get specfic dish detail from specific restaurant. ---- DONE
 @router.get("/{dish_id}", response_model=DishDetailResponse)

@@ -4,6 +4,7 @@ from fastapi.exception_handlers import (
     http_exception_handler,
     request_validation_exception_handler
 )
+from fastapi_pagination import  add_pagination
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -27,6 +28,7 @@ async def lifespan(_app: FastAPI):
     await engine.dispose()
 
 app = FastAPI(lifespan=lifespan)
+add_pagination(app)
 
 app.add_middleware(
     CORSMiddleware,

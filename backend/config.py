@@ -16,5 +16,13 @@ class Settings(BaseSettings):
     default_city_lon: float = 153.0251
     default_city_name: str = "Brisbane CBD"
 
+    reset_token_expire_minutes: int = 60
+    mail_server: str = "localhost"
+    mail_port: int = 587
+    mail_username: str = ""
+    mail_password: SecretStr = SecretStr("")
+    mail_from: str = "noreply@mealfinder.com"
+    mail_use_tls: bool = True
+    frontend_url: str = "http://localhost:8000"
 
 settings = Settings()
