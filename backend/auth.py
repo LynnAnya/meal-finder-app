@@ -1,3 +1,5 @@
+import hashlib
+import secrets 
 from datetime import UTC, datetime, timedelta
 from typing import Annotated
 import jwt 
@@ -12,6 +14,7 @@ from database import get_db
 import models
 
 
+
 password_hash = PasswordHash.recommended()
 
 # Tells FastAPI to look for a "Bearer <token>" string inside the Authorization Header
@@ -22,6 +25,12 @@ def hash_password(password: str) -> str:
 
 def verify_password(plain_password:str, hashed_password:str) -> bool:
     return password_hash.verify(plain_password, hashed_password)
+
+def generate_reset_token() -> str:
+    return secrets.token_urlsafe(32)  # Generates a secure random token
+
+def hash_reset_token(token: str) -> str:
+    return hashlib.sha256(token.encode()).hexdigest()
 
 def create_access_token(data:dict, expires_delta:timedelta) -> str:
     """Create a JWT access token here"""
