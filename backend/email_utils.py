@@ -13,7 +13,6 @@ async def send_email(
     message["From"] = settings.mail_from
     message["To"] = to_email
     message["Subject"] = subject
-
     message.set_content(plain_text)
 
     if html_content:
@@ -27,7 +26,6 @@ async def send_email(
         password=settings.mail_password.get_secret_value() or None,
         start_tls=settings.mail_use_tls,
     )
-
 
 
 async def send_password_reset_email(to_email: str, username: str, token: str) -> None:

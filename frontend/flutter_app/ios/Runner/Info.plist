@@ -4,6 +4,15 @@
 <dict>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>MealFinder needs your location to show how close restaurants are to you.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>mealfinder</string>
+			</array>
+		</dict>
+	</array>
 	<key>CADisableMinimumFrameDurationOnPhone</key>
 	<true/>
 	<key>CFBundleDevelopmentRegion</key>

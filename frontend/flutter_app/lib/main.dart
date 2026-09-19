@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'screens/main_screen.dart'; 
 import 'screens/auth_screen.dart';
 import 'providers/user_provider.dart';
+import 'services/deep_link.dart'; 
 
 void main() {
   runApp(
@@ -12,15 +13,36 @@ void main() {
   );
 }
 
-class MealFinderApp extends ConsumerWidget {
+class MealFinderApp extends ConsumerStatefulWidget {
   const MealFinderApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<MealFinderApp> createState() => _MealFinderAppState();
+}
+
+class _MealFinderAppState extends ConsumerState<MealFinderApp> {
+  @override
+  void initState() {
+    super.initState();
+    // 👈 2. Initialize deep link listener immediately after the first frame renders
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      DeepLink.initialize(context);
+    });
+  }
+
+  @override
+  void dispose() {
+    // 👈 3. Clean up the stream listener when the app widget disposes
+    DeepLink.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final userState = ref.watch(userProvider);
 
     return MaterialApp(
-      title: 'MealFinder',
+      title: 'MealFinder', // 👈 Updated to MealFinder
       debugShowCheckedModeBanner: false,
       routes: {
         '/main': (context) => const MainScreen(), 

@@ -16,12 +16,10 @@ class Token {
   }
 }
 
-
 /// Service class handling API calls for Registration & Login
 class AuthApi {
   final ApiClient _apiClient;
 
-  // 🎯 Updated Constructor: No baseUrl required!
   AuthApi({ApiClient? apiClient, http.Client? client})
       : _apiClient = apiClient ?? ApiClient(client: client);
 
@@ -58,4 +56,47 @@ class AuthApi {
       onSuccess: (data) => Token.fromJson(data as Map<String, dynamic>),
     );
   }
+
+  /// 3. Forgot Password
+  Future<void> requestPasswordReset({required String email}) async {
+    await _apiClient.postJson<void>(
+      path: '/users/forgot-password',
+      endpointName: 'requestPasswordReset',
+      body: {'email': email,},
+      onSuccess: (_) {},
+    );
+  }
+
+  /// 4. Reset Password with Token from Deep Link (POST /users/reset-password)
+  Future<void> resetPassword({
+    required String token,
+    required String newPassword,
+  }) async {
+    await _apiClient.postJson<void>(
+      path: '/users/reset-password',
+      endpointName: 'resetPassword',
+      body: {
+        'token': token,
+        'new_password': newPassword,
+      },
+      onSuccess: (_) {},
+    );
+  }
+
+  /// 5. Change Password for Logged In User (PATCH /users/me/password)
+  Future<void> changePassword({
+    required String currentPassword,
+    required String newPassword,
+  }) async {
+    await _apiClient.patchJson<void>(
+      path: '/users/me/password',
+      endpointName: 'changePassword',
+      body: {
+        'current_password': currentPassword,
+        'new_password': newPassword,
+      },
+      onSuccess: (_) {},
+    );
+  }
+
 }

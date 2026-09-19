@@ -14,7 +14,6 @@ from database import get_db
 import models
 
 
-
 password_hash = PasswordHash.recommended()
 
 # Tells FastAPI to look for a "Bearer <token>" string inside the Authorization Header

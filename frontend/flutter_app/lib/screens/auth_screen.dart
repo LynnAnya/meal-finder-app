@@ -3,8 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../services/auth_api.dart';
 import '../core/storage/token_storage.dart'; 
 import '../providers/user_provider.dart'; 
+import 'forgot_password_screen.dart';
 
-// 3. ✨ Change to ConsumerStatefulWidget
 class AuthScreen extends ConsumerStatefulWidget {
   const AuthScreen({super.key});
 
@@ -12,22 +12,17 @@ class AuthScreen extends ConsumerStatefulWidget {
   ConsumerState<AuthScreen> createState() => _AuthScreenState();
 }
 
-// 4. ✨ Change to ConsumerState
 class _AuthScreenState extends ConsumerState<AuthScreen> {
-  // 🔑 State variables
   bool _isLogin = true;
   bool _isLoading = false; 
   bool _isPasswordVisible = false; 
 
-  // 📝 Controllers to read user input
   final TextEditingController _usernameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
 
-  // 🌐 Initialize our updated API Service
   final AuthApi _authApi = AuthApi();
 
-  // 🎨 Exact Same Doodle Theme Colors
   final Color bgColor = const Color(0xFFFEFDF7);
   final Color cardColor = Colors.white;
   final Color accentColor = const Color.fromARGB(255, 187, 182, 242);
@@ -59,7 +54,6 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
     super.dispose();
   }
 
-  // Connects UI to API & Handles State Sync
   Future<void> _handleSubmit() async {
     setState(() {
       _isLoading = true; 
@@ -67,27 +61,22 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
     try {
       if (_isLogin) {
-        // --- LOGIN FLOW ---
         final token = await _authApi.loginForAccessToken(
           email: _emailController.text.trim(), 
           password: _passwordController.text.trim(),
         );
 
-        // 1. Save token to device storage
         await TokenStorage.saveToken(
           accessToken: token.accessToken,
           tokenType: token.tokenType,
         );
 
-        // 🚀 2. Tell Riverpod to throw away old memory and fetch fresh user profile!
         ref.invalidate(userProvider);
 
         if (mounted) {
-          // Navigate to home
           Navigator.pushReplacementNamed(context, '/main');
         }
       } else {
-        // --- REGISTER ---
         final username = _usernameController.text.trim();
         final email = _emailController.text.trim();
         final password = _passwordController.text.trim();
@@ -110,9 +99,8 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
 
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Account $username ($email) created! Please log in. ')),
+            SnackBar(content: Text('Account $username ($email) created! Please log in.')),
           );
-          // Switch back to Login view automatically so the user can log in
           setState(() {
             _isLogin = true;
             _passwordController.clear(); 
@@ -150,7 +138,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  '🌯 Meal Finder',
+                  'Meal Finder',
                   style: TextStyle(
                     color: textMain,
                     fontSize: 32,
@@ -221,7 +209,34 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 24),
+                      
+                      if (_isLogin) ...[
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton(
+                            onPressed: _isLoading
+                                ? null
+                                : () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute(
+                                        builder: (context) => const ForgotPasswordScreen(),
+                                      ),
+                                    );
+                                  },
+                            child: Text(
+                              'Forgot your Password?',
+                              style: TextStyle(
+                                color: textMuted,
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                        ),
+                      ] else ...[
+                        const SizedBox(height: 24),
+                      ],
 
                       GestureDetector(
                         onTap: _isLoading ? null : _handleSubmit, 
