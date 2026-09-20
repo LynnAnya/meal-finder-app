@@ -4,11 +4,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:image_picker/image_picker.dart';
 import 'auth_screen.dart';
 import '../providers/user_provider.dart';
+import 'change_password_screen.dart';
 import '../models/user.dart';
 
 class ProfileScreen extends ConsumerStatefulWidget {
   const ProfileScreen({super.key});
-
   @override
   ConsumerState<ProfileScreen> createState() => _ProfileScreenState();
 }
@@ -136,7 +136,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   // 📸 Handle Pick & Upload Image
   Future<void> _pickAndUploadImage() async {
     final messenger = ScaffoldMessenger.of(context); 
-
     try {
       final XFile? image = await _picker.pickImage(source: ImageSource.gallery);
       if (image != null) {
@@ -153,10 +152,9 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  // 🗑️ Handle Delete Image
+  //Handle Delete Image
   Future<void> _removeImage() async {
     final messenger = ScaffoldMessenger.of(context);
-
     try {
       await ref.read(userProvider.notifier).deleteProfilePicture();
       
@@ -170,7 +168,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
     }
   }
 
-  // 📄 Show Tall User Details Modal
+  //  Show Tall User Details Modal
   void _showUserDetailsModal() {
     showModalBottomSheet(
       context: context,
@@ -211,7 +209,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       ),
                     ),
                     
-                    // 🎯 Modern Social Avatar with Camera Badge Overlay
+                    //  Modern Social Avatar with Camera Badge Overlay
                     Center(
                       child: Column(
                         children: [
@@ -228,7 +226,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                                   child: _buildProfileAvatar(user, radius: 48, iconSize: 50),
                                 ),
 
-                                // 2. Floating Camera Badge 📸
+                                // 2. Floating Camera Badge 
                                 Positioned(
                                   bottom: 0,
                                   right: 0,
@@ -316,7 +314,6 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   @override
   Widget build(BuildContext context) {
     final userState = ref.watch(userProvider);
-
     return Scaffold(
       backgroundColor: bgColor,
       appBar: AppBar(
@@ -385,11 +382,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                       children: [
                         ListTile(
                           leading: Icon(Icons.person_outline, color: textMain),
-                          title: Text('Edit Profile', style: TextStyle(color: textMain, fontWeight: FontWeight.w500)),
+                          title: Text('Change Password', style: TextStyle(color: textMain, fontWeight: FontWeight.w500)),
                           trailing: Icon(Icons.chevron_right, color: textMuted),
                           onTap: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Edit Profile coming soon!')),
+                            Navigator.of(context).push(
+                              MaterialPageRoute(
+                                builder: (context) => const ChangePasswordScreen(),
+                              ),
                             );
                           },
                         ),

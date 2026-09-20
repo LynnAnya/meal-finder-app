@@ -191,7 +191,7 @@ async def reset_password(request_data: ResetPasswordRequest,db: Annotated[AsyncS
             status_code=status.HTTP_400_BAD_REQUEST,detail="Invalid or expired reset token.",
         )
 
-    if reset_token.expires_at.replace(tzinfo=UTC) < datetime.now(UTC):
+    if reset_token.expires_at < datetime.now(UTC):
         await db.delete(reset_token)
         await db.commit()
         raise HTTPException(
@@ -220,15 +220,11 @@ async def change_password(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     if not verify_password(password_data.current_password, current_user.password_hash):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Current password is incorrect.",
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,detail="Current password is incorrect.",
         )
 
     current_user.password_hash = hash_password(password_data.new_password)
-
     await db.execute(sql_delete(models.PasswordResetToken).where(models.PasswordResetToken.user_id == current_user.id))
-
     await db.commit()
     return {"message": "Password has been changed successfully."}
 

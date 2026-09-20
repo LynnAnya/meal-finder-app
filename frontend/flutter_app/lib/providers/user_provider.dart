@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/user.dart';
 import '../services/users_api.dart';
+import '../services/auth_api.dart';
 import '../core/storage/token_storage.dart';
 
 // 1. The Notifier (The Brain/Manager)
@@ -67,6 +68,13 @@ class UserNotifier extends AsyncNotifier<User?> {
     }
   }
 
+  /// Changes the user's password and updates global Riverpod state
+  Future<void> changePassword({required String currentPassword,required String newPassword,}) async {
+    await AuthApi().changePassword(
+      currentPassword: currentPassword,
+      newPassword: newPassword,
+    );
+  }
 }
 
 // 2. The Provider (The label the UI uses to connect to the Brain)

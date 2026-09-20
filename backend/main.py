@@ -11,18 +11,15 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.staticfiles import StaticFiles
 
 from seed import seed_data
-from database import Base, engine, AsyncSessionLocal
+from database import engine, AsyncSessionLocal
 #from auth import get_current_user
 from routers import users, reviews, dishes
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
     # startup
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    await seed_data()
-
+    #async with engine.begin() as conn:
+        #await conn.run_sync(Base.metadata.create_all)
     yield
     #shutdown
     await engine.dispose()

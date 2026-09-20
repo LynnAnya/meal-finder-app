@@ -24,7 +24,7 @@ class _MealFinderAppState extends ConsumerState<MealFinderApp> {
   @override
   void initState() {
     super.initState();
-    // 👈 2. Initialize deep link listener immediately after the first frame renders
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
       DeepLink.initialize(context);
     });
@@ -32,7 +32,6 @@ class _MealFinderAppState extends ConsumerState<MealFinderApp> {
 
   @override
   void dispose() {
-    // 👈 3. Clean up the stream listener when the app widget disposes
     DeepLink.dispose();
     super.dispose();
   }
@@ -42,7 +41,7 @@ class _MealFinderAppState extends ConsumerState<MealFinderApp> {
     final userState = ref.watch(userProvider);
 
     return MaterialApp(
-      title: 'MealFinder', // 👈 Updated to MealFinder
+      title: 'MealFinder', 
       debugShowCheckedModeBanner: false,
       routes: {
         '/main': (context) => const MainScreen(), 
@@ -58,7 +57,6 @@ class _MealFinderAppState extends ConsumerState<MealFinderApp> {
         ),
         
         error: (error, stack) => const AuthScreen(),
-        
         // Backend verification result
         data: (user) {
           if (user != null) {

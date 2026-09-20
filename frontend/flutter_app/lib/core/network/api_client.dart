@@ -192,7 +192,6 @@ class ApiClient {
     required T Function(dynamic data) onSuccess,
   }) async {
     final url = Uri.parse('$baseUrl$path');
-
     try {
       final response = await _client
           .patch(

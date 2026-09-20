@@ -53,9 +53,7 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     if (email.isEmpty || !email.contains('@')) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter a valid email address.'),
-          backgroundColor: Colors.orangeAccent,
+        const SnackBar(content: Text('Please enter a valid email address.'),backgroundColor: Colors.orangeAccent,
         ),
       );
       return;
@@ -71,21 +69,16 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
 
     try {
       await _authApi.requestPasswordReset(email: email);
-
       messenger.showSnackBar(
-        SnackBar(
-          content: Text('Password reset link sent to $email! Check your inbox.'),
+        SnackBar( content: Text('Password reset link sent to $email! Check your inbox.'),
         ),
       );
 
-      if (mounted) {
-        navigator.pop(); // Pop back to AuthScreen
+      if (mounted) { navigator.pop(); // Pop back to AuthScreen
       }
     } catch (e) {
       messenger.showSnackBar(
-        SnackBar(
-          content: Text('Error: ${e.toString()}'),
-          backgroundColor: Colors.redAccent,
+        SnackBar(content: Text('Error: ${e.toString()}'),backgroundColor: Colors.redAccent,
         ),
       );
     } finally {
