@@ -99,7 +99,7 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     } catch (e) {
       messenger.showSnackBar(
         SnackBar(
-          content: Text('Error: ${e.toString()}'),
+          content: Text('Error: ${e.toString().replaceAll('NetworkException: ', '')}'),
           backgroundColor: Colors.redAccent,
         ),
       );

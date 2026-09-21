@@ -10,8 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from fastapi.staticfiles import StaticFiles
 
-from seed import seed_data
-from database import engine, AsyncSessionLocal
+from database import engine
 #from auth import get_current_user
 from routers import users, reviews, dishes
 

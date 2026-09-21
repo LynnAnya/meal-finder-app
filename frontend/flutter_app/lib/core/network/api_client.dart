@@ -84,7 +84,6 @@ class ApiClient {
     final url = Uri.parse('$baseUrl$path');
 
     try {
-      // 🪄 Attached headers using await _getHeaders()
       final response = await _client
           .post(
             url,
@@ -120,7 +119,6 @@ class ApiClient {
     final url = Uri.parse('$baseUrl$path');
 
     try {
-      // 🪄 Attached headers using await _getHeaders(isForm: true)
       final response = await _client
           .post(
             url,

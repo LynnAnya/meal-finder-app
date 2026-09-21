@@ -5,6 +5,7 @@ import 'screens/auth_screen.dart';
 import 'providers/user_provider.dart';
 import 'services/deep_link.dart'; 
 
+final navigatorKey = GlobalKey<NavigatorState>();
 void main() {
   runApp(
     const ProviderScope(
@@ -26,7 +27,7 @@ class _MealFinderAppState extends ConsumerState<MealFinderApp> {
     super.initState();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      DeepLink.initialize(context);
+      DeepLink.initialize();
     });
   }
 
@@ -41,13 +42,13 @@ class _MealFinderAppState extends ConsumerState<MealFinderApp> {
     final userState = ref.watch(userProvider);
 
     return MaterialApp(
+      navigatorKey: navigatorKey,
       title: 'MealFinder', 
       debugShowCheckedModeBanner: false,
       routes: {
         '/main': (context) => const MainScreen(), 
         '/auth': (context) => const AuthScreen(),
       },
-      
       // Startup Flow Handler
       home: userState.when(
         // App is checking token on launch
@@ -55,16 +56,9 @@ class _MealFinderAppState extends ConsumerState<MealFinderApp> {
           backgroundColor: Color(0xFFFEFDF7),
           body: Center(child: CircularProgressIndicator()),
         ),
-        
         error: (error, stack) => const AuthScreen(),
         // Backend verification result
-        data: (user) {
-          if (user != null) {
-            return const MainScreen(); 
-          } else {
-            return const AuthScreen(); 
-          }
-        },
+        data: (user) => user != null ? const MainScreen() : const AuthScreen(),
       ),
     );
   }
