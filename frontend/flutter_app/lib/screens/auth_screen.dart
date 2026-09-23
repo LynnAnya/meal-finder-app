@@ -138,7 +138,7 @@ class _AuthScreenState extends ConsumerState<AuthScreen> {
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 Text(
-                  'Meal Finder',
+                  'Meal Finder 🍽️',
                   style: TextStyle(
                     color: textMain,
                     fontSize: 32,

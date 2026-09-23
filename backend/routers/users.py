@@ -321,10 +321,7 @@ async def delete_user_picture(
     old_filename = current_user.image_file
 
     if old_filename is None:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="No profile picture to delete",
-        )
+        raise HTTPException( status_code=status.HTTP_403_FORBIDDEN,detail="No profile picture to delete",)
     current_user.image_file = None
     await db.commit()
     await db.refresh(current_user)
@@ -333,6 +330,7 @@ async def delete_user_picture(
     return current_user
 
 
+"""""
 #user favourite dishes --
 @router.get("/me/favourites", response_model=list[DishResponse], name="favourite_dishes")
 async def get_user_favourites(current_user: CurrentUser,db: Annotated[AsyncSession, Depends(get_db)]):    
@@ -346,4 +344,4 @@ async def get_user_favourites(current_user: CurrentUser,db: Annotated[AsyncSessi
     result = await db.execute(query)
     fav_dishes = result.scalars().unique().all()
     return fav_dishes
-
+"""""

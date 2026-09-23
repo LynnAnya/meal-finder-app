@@ -32,30 +32,26 @@ class DishService {
       queryParameters: queryParams,
       endpointName: 'searchDishes',
       onSuccess: (data) {
-        if (data is! List) {
+        List<dynamic> rawItems = [];
+        if (data is Map<String, dynamic> && data.containsKey('items')) {
+          rawItems = data['items'] as List<dynamic>;
+        } 
+        else if (data is List) {
+          rawItems = data;
+        } 
+        else {
           developer.log(
-            'JSON format error: Expected List but got ${data.runtimeType}',
+            'JSON format error: Expected Map with "items" or List, got ${data.runtimeType}',
             name: 'DishService.searchDishes',
           );
           throw NetworkException(
-            'Expected a List from server, but got ${data.runtimeType}',
+            'Unexpected JSON format from server: ${data.runtimeType}',
           );
         }
-
-        return data.map((item) {
-          try {
-            return Dish.fromJson(item as Map<String, dynamic>);
-          } catch (e, stack) {
-            developer.log(
-              'Failed to parse Dish item: $item',
-              error: e,
-              stackTrace: stack,
-              name: 'DishService.searchDishes',
-            );
-            throw NetworkException('Failed to parse Dish: $e\nItem payload: $item');
-          }
-        }).toList();
-      },
+        return rawItems
+            .map((json) => Dish.fromJson(json as Map<String, dynamic>))
+            .toList();
+     },
     );
   }
 

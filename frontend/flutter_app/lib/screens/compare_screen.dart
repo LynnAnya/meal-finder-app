@@ -17,7 +17,6 @@ class CompareScreen extends ConsumerStatefulWidget {
 }
 
 class _CompareScreenState extends ConsumerState<CompareScreen> {
-  // 🎨 Playful Theme Palette (Matches HomeScreen)
   final Color bgColor = const Color(0xFFFEFDF7);
   final Color cardColor = Colors.white;
   final Color accentColor = const Color.fromARGB(255, 187, 182, 242);
@@ -30,6 +29,20 @@ class _CompareScreenState extends ConsumerState<CompareScreen> {
   bool _isLoadingAi = false;
   CompareResponse? _aiComparison;
   String? _aiError;
+
+  // 🛡️ Lock flag to prevent rapid double-tapping from popping into a black screen
+  bool _isPopping = false;
+
+  void _handleBackPress() {
+    if (_isPopping) return;
+
+    if (Navigator.canPop(context)) {
+      setState(() => _isPopping = true);
+      Navigator.pop(context);
+    } else {
+      setState(() => _isPopping = false);
+    }
+  }
 
   BoxDecoration _doodleDecoration({Color? color, double borderRadius = 12.5}) {
     return BoxDecoration(
@@ -71,8 +84,6 @@ class _CompareScreenState extends ConsumerState<CompareScreen> {
     try {
       final dishIds = dishes.map((d) => d.id).toList();
 
-      // Read location state from Riverpod
-      // If user denied GPS or coordinates are null, send null to let backend apply default city
       final rawPosition = ref.read(locationProvider);
       final double? userLat = rawPosition?.latitude;
       final double? userLon = rawPosition?.longitude;
@@ -101,90 +112,95 @@ class _CompareScreenState extends ConsumerState<CompareScreen> {
 
   @override
   Widget build(BuildContext context) {
-    // 🎯 Live sync with HomeScreen compare selection
     final selectedDishes = ref.watch(compareProvider);
-
-    // 🎯 Watch user location (falling back safely to Brisbane CBD if GPS denied)
     final Position userPos = ref.watch(locationProvider) ?? UserLocationService.defaultLocation;
+    final bool canPop = Navigator.canPop(context);
 
-    return Scaffold(
-      backgroundColor: bgColor,
-      appBar: AppBar(
-        backgroundColor: Colors.transparent,
-        elevation: 0,
-        leading: IconButton(
-          icon: Icon(Icons.arrow_back_ios_new_rounded, color: textMain),
-          onPressed: () => Navigator.pop(context),
-        ),
-        title: Text(
-          'Compare Meals',
-          style: TextStyle(
-            color: textMain,
-            fontWeight: FontWeight.w700,
-            fontSize: 20,
+    return PopScope(
+      canPop: canPop,
+      onPopInvokedWithResult: (didPop, result) {
+        if (didPop) return;
+        _handleBackPress();
+      },
+      child: Scaffold(
+        backgroundColor: bgColor,
+        appBar: AppBar(
+          backgroundColor: Colors.transparent,
+          elevation: 0,
+          leading: canPop ? IconButton(
+            icon: Icon(Icons.arrow_back_ios_new_rounded, color: textMain),
+            onPressed: _handleBackPress,
+          ) : null,
+          title: Text(
+            'Compare Meals',
+            style: TextStyle(
+              color: textMain,
+              fontWeight: FontWeight.w700,
+              fontSize: 20,
+            ),
           ),
-        ),
-        actions: [
-          if (selectedDishes.isNotEmpty)
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: _clearAllComparison,
-              child: Padding(
-                padding: const EdgeInsets.only(right: 16.0, left: 8.0),
-                child: Center(
-                  child: Text(
-                    'Clear',
-                    style: TextStyle(
-                      color: textMuted,
-                      fontSize: 14,
-                      fontWeight: FontWeight.w600,
+          actions: [
+            if (selectedDishes.isNotEmpty)
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: _clearAllComparison,
+                child: Padding(
+                  padding: const EdgeInsets.only(right: 16.0, left: 8.0),
+                  child: Center(
+                    child: Text(
+                      'Clear',
+                      style: TextStyle(
+                        color: textMuted,
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
-        ],
-      ),
-      body: selectedDishes.isEmpty
-          ? _buildEmptyState()
-          : SingleChildScrollView(
-              physics: const BouncingScrollPhysics(),
-              padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Selected (${selectedDishes.length}/5)',
-                    style: TextStyle(
-                      color: textMain,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
+          ],
+        ),
+        body: selectedDishes.isEmpty
+            ? _buildEmptyState()
+            : SingleChildScrollView(
+                physics: const BouncingScrollPhysics(),
+                padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 12.0),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Selected (${selectedDishes.length}/5)',
+                      style: TextStyle(
+                        color: textMain,
+                        fontSize: 16,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 12),
+                    const SizedBox(height: 12),
 
-                  // 1. Horizontal Scroll Comparison Table/Columns
-                  SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    physics: const BouncingScrollPhysics(),
-                    child: Row(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: selectedDishes.map((dish) {
-                        return _buildDishColumn(dish, userPos);
-                      }).toList(),
+                    // 1. Horizontal Scroll Comparison Table/Columns
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: selectedDishes.map((dish) {
+                          return _buildDishColumn(dish, userPos);
+                        }).toList(),
+                      ),
                     ),
-                  ),
 
-                  const SizedBox(height: 24),
-                  Divider(color: Colors.grey.shade300, thickness: 1.0),
-                  const SizedBox(height: 20),
+                    const SizedBox(height: 24),
+                    Divider(color: Colors.grey.shade300, thickness: 1.0),
+                    const SizedBox(height: 20),
 
-                  // 2. AI Decision Helper Area
-                  _buildAiHelperSection(selectedDishes),
-                  const SizedBox(height: 32),
-                ],
+                    // 2. AI Decision Helper Area
+                    _buildAiHelperSection(selectedDishes),
+                    const SizedBox(height: 32),
+                  ],
+                ),
               ),
-            ),
+      ),
     );
   }
 
@@ -220,165 +236,164 @@ class _CompareScreenState extends ConsumerState<CompareScreen> {
   // Individual Comparison Column Card with Distance Row
   Widget _buildDishColumn(Dish dish, Position userPos) {
     String distanceText = '-';
-  if (dish.lat != null && dish.lon != null) {
-    final meters = UserLocationService.calculateDistance(
-      userLat: userPos.latitude,
-      userLng: userPos.longitude,
-      targetLat: dish.lat!,
-      targetLng: dish.lon!,
-    );
-    final formatted = UserLocationService.formatDistance(meters);
-    if (formatted.isNotEmpty) {
-      distanceText = formatted;
+    if (dish.lat != null && dish.lon != null) {
+      final meters = UserLocationService.calculateDistance(
+        userLat: userPos.latitude,
+        userLng: userPos.longitude,
+        targetLat: dish.lat!,
+        targetLng: dish.lon!,
+      );
+      final formatted = UserLocationService.formatDistance(meters);
+      if (formatted.isNotEmpty) {
+        distanceText = formatted;
+      }
     }
-  }
 
-  final rowDivider = Divider(
-    height: 14,
-    thickness: 1,
-    color: outlineColor.withValues(alpha: 0.25),
-  );
+    final rowDivider = Divider(
+      height: 14,
+      thickness: 1,
+      color: outlineColor.withValues(alpha: 0.25),
+    );
 
-  return Container(
-    width: 175,
-    margin: const EdgeInsets.only(right: 2.0, bottom: 6.0), // tighter gap between cards
-    padding: const EdgeInsets.all(12.0),
-    decoration: _doodleDecoration(),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Row 1: Circular Deselect Checkbox Indicator
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              'Selected',
-              style: TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w600),
-            ),
-            GestureDetector(
-              behavior: HitTestBehavior.opaque,
-              onTap: () => ref.read(compareProvider.notifier).toggleDish(dish),
-              child: Container(
-                width: 22,
-                height: 22,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: accentColor,
-                  border: Border.all(color: outlineColor, width: 1.2),
-                ),
-                child: Icon(Icons.check_rounded, size: 15, color: textMain),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 10),
-
-        // Row 2: Tappable Dish Image — already fixed height, stays as-is
-        GestureDetector(
-          onTap: () => Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => DishDetailScreen(dishId: dish.id)),
-          ),
-          child: Container(
-            width: double.infinity,
-            height: 110,
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: outlineColor, width: 1.0),
-            ),
-            child: ClipRRect(
-              borderRadius: BorderRadius.circular(9),
-              child: dish.imageUrl != null && dish.imageUrl!.isNotEmpty
-                  ? Image.network(
-                      dish.imageUrl!,
-                      fit: BoxFit.cover,
-                      errorBuilder: (_, _, _) => _buildPlaceholderImage(),
-                    )
-                  : _buildPlaceholderImage(),
-            ),
-          ),
-        ),
-        const SizedBox(height: 10),
-
-        // Row 3: Dish Name — pinned height so a 1-line vs 2-line name
-        // ends at the exact same Y on every card.
-        SizedBox(
-          height: 38,
-          child: Text(
-            dish.name,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: textMain, fontSize: 15, fontWeight: FontWeight.w700, height: 1.2),
-          ),
-        ),
-        rowDivider,
-
-        // Row 4: Price Badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: secondaryAccent,
-            borderRadius: BorderRadius.circular(7),
-            border: Border.all(color: outlineColor, width: 1.0),
-          ),
-          child: Text(
-            '\$${dish.price.toStringAsFixed(2)}',
-            style: TextStyle(color: textMain, fontSize: 13, fontWeight: FontWeight.w700),
-          ),
-        ),
-        rowDivider,
-
-        // Row 5: Rating Badge
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(7),
-            border: Border.all(color: outlineColor, width: 1.0),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
+    return Container(
+      width: 175,
+      margin: const EdgeInsets.only(right: 2.0, bottom: 6.0),
+      padding: const EdgeInsets.all(12.0),
+      decoration: _doodleDecoration(),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Row 1: Circular Deselect Checkbox Indicator
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Icon(Icons.star_rounded, color: Color(0xFFFFB01D), size: 15),
-              const SizedBox(width: 3),
               Text(
-                dish.rating.toString(),
-                style: TextStyle(color: textMain, fontSize: 12, fontWeight: FontWeight.w600),
+                'Selected',
+                style: TextStyle(color: textMuted, fontSize: 12, fontWeight: FontWeight.w600),
+              ),
+              GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: () => ref.read(compareProvider.notifier).toggleDish(dish),
+                child: Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: accentColor,
+                    border: Border.all(color: outlineColor, width: 1.2),
+                  ),
+                  child: Icon(Icons.check_rounded, size: 15, color: textMain),
+                ),
               ),
             ],
           ),
-        ),
-        rowDivider,
+          const SizedBox(height: 10),
 
-        // Row 6: Restaurant Address — value also pinned to a fixed height
-        Text('Address', style: TextStyle(color: textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 2),
-        SizedBox(
-          height: 32,
-          child: Text(
-            (dish.restaurantAddress != null && dish.restaurantAddress!.isNotEmpty)
-                ? dish.restaurantAddress!
-                : (dish.restaurantName ?? 'No address'),
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: TextStyle(color: textMain, fontSize: 12, height: 1.2),
+          // Row 2: Tappable Dish Image
+          GestureDetector(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(builder: (context) => DishDetailScreen(dishId: dish.id)),
+            ),
+            child: Container(
+              width: double.infinity,
+              height: 110,
+              decoration: BoxDecoration(
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(color: outlineColor, width: 1.0),
+              ),
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(9),
+                child: dish.imageUrl != null && dish.imageUrl!.isNotEmpty
+                    ? Image.network(
+                        dish.imageUrl!,
+                        fit: BoxFit.cover,
+                        errorBuilder: (_, _, _) => _buildPlaceholderImage(),
+                      )
+                    : _buildPlaceholderImage(),
+              ),
+            ),
           ),
-        ),
-        rowDivider,
+          const SizedBox(height: 10),
 
-        // Row 7: Calculated Live Distance
-        Text('Distance', style: TextStyle(color: textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
-        const SizedBox(height: 2),
-        SizedBox(
-          height: 18,
-          child: Text(
-            distanceText,
-            style: TextStyle(color: textMain, fontSize: 13, fontWeight: FontWeight.w600),
+          // Row 3: Dish Name
+          SizedBox(
+            height: 38,
+            child: Text(
+              dish.name,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: textMain, fontSize: 15, fontWeight: FontWeight.w700, height: 1.2),
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+          rowDivider,
+
+          // Row 4: Price Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: secondaryAccent,
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(color: outlineColor, width: 1.0),
+            ),
+            child: Text(
+              '\$${dish.price.toStringAsFixed(2)}',
+              style: TextStyle(color: textMain, fontSize: 13, fontWeight: FontWeight.w700),
+            ),
+          ),
+          rowDivider,
+
+          // Row 5: Rating Badge
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(7),
+              border: Border.all(color: outlineColor, width: 1.0),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.star_rounded, color: Color(0xFFFFB01D), size: 15),
+                const SizedBox(width: 3),
+                Text(
+                  dish.rating.toString(),
+                  style: TextStyle(color: textMain, fontSize: 12, fontWeight: FontWeight.w600),
+                ),
+              ],
+            ),
+          ),
+          rowDivider,
+
+          // Row 6: Restaurant Address
+          Text('Address', style: TextStyle(color: textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          SizedBox(
+            height: 32,
+            child: Text(
+              (dish.restaurantAddress != null && dish.restaurantAddress!.isNotEmpty)
+                  ? dish.restaurantAddress!
+                  : (dish.restaurantName ?? 'No address'),
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(color: textMain, fontSize: 12, height: 1.2),
+            ),
+          ),
+          rowDivider,
+
+          // Row 7: Calculated Live Distance
+          Text('Distance', style: TextStyle(color: textMuted, fontSize: 11, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 2),
+          SizedBox(
+            height: 18,
+            child: Text(
+              distanceText,
+              style: TextStyle(color: textMain, fontSize: 13, fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildPlaceholderImage() {
@@ -393,12 +408,12 @@ class _CompareScreenState extends ConsumerState<CompareScreen> {
     if (_isLoadingAi) {
       return Container(
         width: double.infinity,
-        padding: const EdgeInsets.all(24),
+        padding: const EdgeInsets.all(10),
         decoration: _doodleDecoration(),
         child: Column(
           children: [
             CircularProgressIndicator(color: accentColor),
-            const SizedBox(height: 16),
+            const SizedBox(height: 10),
             Text(
               'AI is comparing reviews, prices & distance...',
               style: TextStyle(color: textMain, fontSize: 14, fontWeight: FontWeight.w600),
@@ -422,10 +437,9 @@ class _CompareScreenState extends ConsumerState<CompareScreen> {
               children: [
                 Row(
                   children: [
-                    const Text('🤖', style: TextStyle(fontSize: 22)),
                     const SizedBox(width: 8),
                     Text(
-                      'AI Decision Verdict',
+                      'What Foodie AI thinks...',
                       style: TextStyle(color: textMain, fontSize: 18, fontWeight: FontWeight.w700),
                     ),
                   ],
@@ -538,8 +552,7 @@ class _CompareScreenState extends ConsumerState<CompareScreen> {
             alignment: Alignment.center,
             child: Row(
               mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                const Text('🤖', style: TextStyle(fontSize: 18)),
+              children: [ 
                 const SizedBox(width: 8),
                 Text(
                   'Ask AI to Help Decide',

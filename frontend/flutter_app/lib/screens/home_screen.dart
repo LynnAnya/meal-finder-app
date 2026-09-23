@@ -20,7 +20,6 @@ class HomeScreen extends ConsumerStatefulWidget {
 }
 
 class _HomeScreenState extends ConsumerState<HomeScreen> {
-  // 🎨 Playful Theme Colors
   final Color bgColor = const Color(0xFFFEFDF7);
   final Color cardColor = Colors.white;
   final Color accentColor = const Color.fromARGB(255, 187, 182, 242);
