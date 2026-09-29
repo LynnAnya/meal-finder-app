@@ -39,8 +39,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# local default profile image
 app.mount("/static", StaticFiles(directory="static"), name="static")
-app.mount("/media", StaticFiles(directory="media"), name="media")
 
 app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(dishes.router, prefix="/dishes", tags=["Dishes"])

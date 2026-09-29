@@ -3,6 +3,7 @@ from datetime import datetime, UTC, time
 from sqlalchemy import DateTime, ForeignKey, Integer, String, Text, Time,Float, Boolean, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from database import Base 
+from config import settings
 
 #create user table and its column and relationship to other tables  
 class User(Base):
@@ -27,8 +28,8 @@ class User(Base):
         
     @property
     def image_path(self) -> str:
-        if self.image_file:
-            return f"/media/profile_pics/{self.image_file}"
+        if self.images_file:
+            return f"https://{settings.r2_public_domain}/profile_pics/{self.image_file}"
         return "/static/profile_pics/default.jpg"
 
 # user can create their review on any dishes and can see other's review    

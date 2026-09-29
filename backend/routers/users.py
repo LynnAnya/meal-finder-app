@@ -1,5 +1,6 @@
 from datetime import timedelta, UTC, datetime
 from typing import Annotated
+from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_pagination import Page
@@ -10,7 +11,6 @@ from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
 from starlette.concurrency import run_in_threadpool
-
 import models
 from auth import (
     create_access_token,
@@ -34,7 +34,8 @@ from schemas import (
     ResetPasswordRequest,
 )
 from config import settings
-from image_utils import delete_profile_image, process_profile_image
+from image_utils import delete_profile_image, process_profile_image, upload_profile_image
+
 
 router = APIRouter()
 
@@ -176,7 +177,7 @@ async def forgot_password(
     return {"message": "If an account exists with this email, you will receive password reset instructions shortly."}
 
 
-#when user clicks on the reset link
+#when user clicks on the reset pwd link
 @router.post("/reset-password", status_code=status.HTTP_200_OK)
 async def reset_password(request_data: ResetPasswordRequest,db: Annotated[AsyncSession, Depends(get_db)],):
     token_hash = hash_reset_token(request_data.token)
@@ -270,15 +271,26 @@ async def delete_user_account(
     current_user: CurrentUser, 
     db: Annotated[AsyncSession, Depends(get_db)]):
 
+    result = await db.execute(select(models.User).where(models.User.id == current_user.id))
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException( status_code=status.HTTP_404_NOT_FOUND, details="User not found")
+
+    
     old_filename = current_user.image_file
 
     await db.delete(current_user)
     await db.commit()
     
     if old_filename:
-        delete_profile_image(old_filename) 
+        await delete_profile_image(old_filename) 
 
     return None
+
+
+###########################
+# user uploads profile picture 
+##########################
 
 # user profile image upload
 @router.patch("/me/picture", response_model=UserPrivate)
@@ -296,11 +308,20 @@ async def upload_user_picture(
         )
     # actual img processing start validating
     try:
-        new_filename = await run_in_threadpool(process_profile_image, content)
+        processed_bytes, new_filename = await run_in_threadpool(process_profile_image, content)
     except UnidentifiedImageError as err:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid image file. Please upload a valid image (JPEG, PNG, GIF, WebP, HEIC).",
+        ) from err
+
+    # upload to S3 cloud storage
+    try: 
+        await upload_profile_image(processed_bytes, new_filename)
+    except ClientError as err:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Failed to upload image. Please try again",
         ) from err
 
     old_filename = current_user.image_file
@@ -309,7 +330,7 @@ async def upload_user_picture(
     await db.refresh(current_user)
 
     if old_filename: 
-        delete_profile_image(old_filename)
+        await delete_profile_image(old_filename)
 
     return current_user
 
@@ -326,7 +347,7 @@ async def delete_user_picture(
     await db.commit()
     await db.refresh(current_user)
 
-    delete_profile_image(old_filename)
+    await delete_profile_image(old_filename)
     return current_user
 
 
