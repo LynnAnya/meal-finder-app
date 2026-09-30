@@ -18,8 +18,10 @@ os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
 
 import boto3
 import pytest
+import models 
 from httpx import ASGITransport, AsyncClient
 from moto import mock_aws
+from unittest.mock import AsyncMock, patch
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 from database import Base, get_db
@@ -71,7 +73,7 @@ async def db_session(test_engine, setup_database) -> AsyncGenerator[AsyncSession
 def mocked_aws():
     with mock_aws():
         s3 = boto3.client("s3", region_name="us-east-1")
-        s3.create_bucket(Bucket=os.environ["S3_BUCKET_NAME"])
+        s3.create_bucket(Bucket=os.environ["R2_BUCKET_NAME"])
         yield s3
 
 @pytest.fixture
@@ -107,4 +109,48 @@ async def login_user( client: AsyncClient,
 
 def auth_header(token: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
-     
+
+
+async def create_test_restaurant(db_session: AsyncSession,
+    name: str = "Test Restaurant",
+    address: str | None = "1 Test Street",) -> models.Restaurant:
+    restaurant = models.Restaurant(
+        name=name,
+        address=address,
+        lat=-28.0,
+        lon=153.4,
+        venue_type="Cafe",
+        cuisine="Thai",
+        opening_hours="9am-5pm",
+    )
+    db_session.add(restaurant)
+    await db_session.commit()
+    await db_session.refresh(restaurant)
+    return restaurant
+
+
+async def create_test_dish(db_session: AsyncSession,
+    name: str = "Test Dish",
+    price: float = 9.99,
+    menu_category: str = "Main",
+    restaurant: models.Restaurant | None = None) -> models.Dish:
+   
+    if restaurant is None:
+        restaurant = await create_test_restaurant(db_session)
+
+    dish = models.Dish(
+        name=name,
+        price=price,
+        menu_category=menu_category,
+        restaurant_id=restaurant.id,
+    )
+    db_session.add(dish)
+    await db_session.commit()
+    await db_session.refresh(dish)
+    return dish
+
+async def get_reset_token(client: AsyncClient, email: str = "test@example.com") -> str:
+    with patch("routers.users.send_password_reset_email", new_callable=AsyncMock) as mock_send:
+        response = await client.post("/users/forgot-password", json={"email": email})
+    assert response.status_code == 202
+    return mock_send.call_args.kwargs["token"]

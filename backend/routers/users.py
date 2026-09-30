@@ -86,7 +86,7 @@ async def remove_favourite(
     return None
 
 ###############
-# user account
+# user auth account
 ##############
 #  register - create new user ----DONE
 @router.post("",response_model=UserPrivate,status_code=status.HTTP_201_CREATED)
@@ -148,8 +148,7 @@ async def get_current_user(current_user: CurrentUser): return current_user
 
 #user gets the email to reset password
 @router.post("/forgot-password", status_code=status.HTTP_202_ACCEPTED)
-async def forgot_password(
-    request_data: ForgotPasswordRequest,
+async def forgot_password(request_data: ForgotPasswordRequest,
     background_tasks: BackgroundTasks,
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -276,12 +275,10 @@ async def delete_user_account(
     if not user:
         raise HTTPException( status_code=status.HTTP_404_NOT_FOUND, details="User not found")
 
-    
     old_filename = current_user.image_file
 
     await db.delete(current_user)
     await db.commit()
-    
     if old_filename:
         await delete_profile_image(old_filename) 
 
@@ -291,7 +288,6 @@ async def delete_user_account(
 ###########################
 # user uploads profile picture 
 ##########################
-
 # user profile image upload
 @router.patch("/me/picture", response_model=UserPrivate)
 async def upload_user_picture(
