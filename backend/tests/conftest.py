@@ -149,8 +149,16 @@ async def create_test_dish(db_session: AsyncSession,
     await db_session.refresh(dish)
     return dish
 
+async def create_search_dishes(db_session: AsyncSession):
+    restaurant = await create_test_restaurant(db_session)
+    await create_test_dish(db_session, name="Pad Thai", price=12.0, menu_category="Mains", average_rating=4.5, restaurant=restaurant)
+    await create_test_dish(db_session, name="Green Curry", price=15.0, menu_category="Mains", average_rating=3.0, restaurant=restaurant)
+    await create_test_dish(db_session, name="Margherita Pizza", price=20.0, menu_category="Appetizers", average_rating=5.0, restaurant=restaurant)
+    await create_test_dish(db_session, name="Thai Iced Tea", price=5.0, menu_category="Dessert", average_rating=2.0, restaurant=restaurant)
+
 async def get_reset_token(client: AsyncClient, email: str = "test@example.com") -> str:
     with patch("routers.users.send_password_reset_email", new_callable=AsyncMock) as mock_send:
         response = await client.post("/users/forgot-password", json={"email": email})
     assert response.status_code == 202
     return mock_send.call_args.kwargs["token"]
+

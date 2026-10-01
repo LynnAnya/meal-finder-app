@@ -146,7 +146,9 @@ async def toggle_dish_favourite(
 
 # dishes compare - user can select 2 or 3 dishes to compare. 8/9/2026
 @router.post("/compare-summary", response_model=CompareResponse, status_code=status.HTTP_200_OK)
-async def compare_dishes_summary(payload: CompareRequest,db: Annotated[AsyncSession, Depends(get_db)],):
+async def compare_dishes_summary(payload: CompareRequest,
+                                 current_user: CurrentUser,
+                                 db: Annotated[AsyncSession, Depends(get_db)],):
     # 1. Fetch the dishes, their parent restaurant coordinates, and review comments
     query = (select(models.Dish).where(models.Dish.id.in_(payload.dish_ids))
             .options(joinedload(models.Dish.restaurant),selectinload(models.Dish.reviews),) )
@@ -160,7 +162,7 @@ async def compare_dishes_summary(payload: CompareRequest,db: Annotated[AsyncSess
     user_has_gps = payload.user_lat is not None and payload.user_lon is not None
     calc_lat = payload.user_lat if user_has_gps else settings.default_city_lat
     calc_lon = payload.user_lon if user_has_gps else settings.default_city_lon
-    # 2. Extract metrics and calculate distance via user_lat & user_lon
+    # 2. Extract metrics and calculate distance 
     dish_summaries = []
     for d in dishes:
         rest = d.restaurant
@@ -188,7 +190,6 @@ async def compare_dishes_summary(payload: CompareRequest,db: Annotated[AsyncSess
 
         # Pull up to 5 non-empty text reviews
         review_comments = [r.comment for r in d.reviews if r.comment][:5]
-
         dish_summaries.append({
             "dish_name": d.name,
             "restaurant_name": rest.name if rest else "Unknown",
@@ -199,7 +200,6 @@ async def compare_dishes_summary(payload: CompareRequest,db: Annotated[AsyncSess
             "customer_reviews": review_comments
             or ["No text reviews written yet."],
         })
-
-     # 3. Call AI Service and return variable for inspection
+     # 3. Call AI 
     ai_result = await ai_service.generate_dish_comparison(dish_summaries)
     return ai_result

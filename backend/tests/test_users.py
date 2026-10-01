@@ -511,14 +511,8 @@ async def test_forgot_password_missing_email(client: AsyncClient):
     mock_send.assert_not_awaited()
 
 ###############
-# password reset.  TODO: check each ! 
+# password reset. 
 ###############
-
-# reset-pwd success 
-
-
-# reset-pwd failed
-
 # Reset password - success: valid token 
 @pytest.mark.anyio
 async def test_reset_password_success(client: AsyncClient):
@@ -635,7 +629,7 @@ async def test_change_password_success(client: AsyncClient):
    )
    assert response.status_code == 200
 
-   # the old email link no longer works (the reset token row was deleted)
+   # the old email link no longer works
    response = await client.post("/users/reset-password",
        json={"token": reset_token, "new_password": "hacker_password_678"},
    )
