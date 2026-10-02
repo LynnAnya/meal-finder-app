@@ -24,7 +24,7 @@ async def lifespan(_app: FastAPI):
     await engine.dispose()
 
 app = FastAPI(lifespan=lifespan)
-add_pagination(app)
+
 
 app.add_middleware(
     CORSMiddleware,
@@ -45,7 +45,8 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.include_router(users.router, prefix="/users", tags=["Users"])
 app.include_router(dishes.router, prefix="/dishes", tags=["Dishes"])
 app.include_router(reviews.router, prefix="/reviews", tags=["Reviews"])
-
+##add_paginate after route 
+add_pagination(app)
 ################
 # home main
 ################

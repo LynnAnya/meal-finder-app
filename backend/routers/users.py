@@ -4,7 +4,7 @@ from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi_pagination import Page
-from fastapi_pagination.ext.sqlalchemy import paginate
+from fastapi_pagination.ext.sqlalchemy import apaginate
 from PIL import UnidentifiedImageError
 from sqlalchemy import delete as sql_delete
 from sqlalchemy import select, func
@@ -51,7 +51,7 @@ async def get_user_reviews(current_user: CurrentUser, db: Annotated[AsyncSession
         .where(models.Review.user_id == current_user.id)
         .order_by(models.Review.id.desc())
     )
-    return await paginate(db, query)
+    return await apaginate(db, query)
 
 # get all favourite dishes feature. ----DONE
 @router.get("/me/favourites", response_model=list[DishResponse])
@@ -158,21 +158,21 @@ async def forgot_password(request_data: ForgotPasswordRequest,
     if user:
         await db.execute(sql_delete(models.PasswordResetToken).where(models.PasswordResetToken.user_id == user.id))
 
-    #generate new token
-    token = generate_reset_token()
-    token_hash = hash_reset_token(token)
-    expires_at = datetime.now(UTC) + timedelta(minutes=settings.reset_token_expire_minutes)
-    reset_token = models.PasswordResetToken(user_id=user.id, token_hash=token_hash, expires_at=expires_at)
-    db.add(reset_token)
-    await db.commit()
+        #generate new token
+        token = generate_reset_token()
+        token_hash = hash_reset_token(token)
+        expires_at = datetime.now(UTC) + timedelta(minutes=settings.reset_token_expire_minutes)
+        reset_token = models.PasswordResetToken(user_id=user.id, token_hash=token_hash, expires_at=expires_at)
+        db.add(reset_token)
+        await db.commit()
 
-    #background task to send email
-    background_tasks.add_task(
-        send_password_reset_email,
-        to_email=user.email,
-        username=user.username,
-        token=token,
-    )
+        #background task to send email
+        background_tasks.add_task(
+            send_password_reset_email,
+            to_email=user.email,
+            username=user.username,
+            token=token,
+        )
     return {"message": "If an account exists with this email, you will receive password reset instructions shortly."}
 
 

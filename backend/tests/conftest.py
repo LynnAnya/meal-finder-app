@@ -18,6 +18,8 @@ os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
 
 import boto3
 import pytest
+from io import BytesIO
+from PIL import Image
 import models 
 from httpx import ASGITransport, AsyncClient
 from moto import mock_aws
@@ -99,6 +101,7 @@ async def create_test_user(client: AsyncClient,
     assert response.status_code == 201, f"Failed to create user: {response.text}"
     return response.json()
 
+
 async def login_user( client: AsyncClient,
         email: str = "test@example.com",
         password: str = "testpwd12345",
@@ -123,6 +126,7 @@ async def create_test_restaurant(db_session: AsyncSession,
         cuisine="Thai",
         opening_hours="9am-5pm",
     )
+    
     db_session.add(restaurant)
     await db_session.commit()
     await db_session.refresh(restaurant)
@@ -132,7 +136,8 @@ async def create_test_restaurant(db_session: AsyncSession,
 async def create_test_dish(db_session: AsyncSession,
     name: str = "Test Dish",
     price: float = 9.99,
-    menu_category: str = "Main",
+    menu_category: str = "Mains",
+    average_rating: float = 0.0,  
     restaurant: models.Restaurant | None = None) -> models.Dish:
    
     if restaurant is None:
@@ -142,6 +147,7 @@ async def create_test_dish(db_session: AsyncSession,
         name=name,
         price=price,
         menu_category=menu_category,
+        average_rating=average_rating,
         restaurant_id=restaurant.id,
     )
     db_session.add(dish)
@@ -162,3 +168,8 @@ async def get_reset_token(client: AsyncClient, email: str = "test@example.com") 
     assert response.status_code == 202
     return mock_send.call_args.kwargs["token"]
 
+
+def make_test_image_bytes(fmt: str = "JPEG") -> bytes:
+    buffer = BytesIO()
+    Image.new("RGB", (100, 100), color="red").save(buffer, format=fmt)
+    return buffer.getvalue()

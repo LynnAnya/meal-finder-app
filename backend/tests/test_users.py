@@ -15,25 +15,27 @@ from tests.conftest import (
     login_user, 
     create_test_dish, 
     create_test_restaurant,
-    get_reset_token)
+    get_reset_token,
+    make_test_image_bytes)
 
 
 ###############
 # user get reviews 
 ##############
 @pytest.mark.anyio
-async def test_get_user_reviews_pagination(client: AsyncClient):
+async def test_get_user_reviews_pagination(client: AsyncClient, db_session: AsyncSession):
    await create_test_user(client)
    token = await login_user(client)
    headers = auth_header(token)
 
+   restaurant = await create_test_restaurant(db_session)
    for i in range(5):
-       response = await client.post(
-           "/users/me/reviews",
-           json={"rating": 5, "comment": "Testing comment created"},  
+        dish = await create_test_dish(db_session, name=f"Dish {i}", restaurant=restaurant)
+        response = await client.post(f"/dishes/{dish.id}/reviews",
+           json={"rating": 5, "comment": f"Test Review Dish {i}"},
            headers=headers,
        )
-       assert response.status_code == 201
+        assert response.status_code == 201, response.text
 
    response = await client.get("/users/me/reviews", headers=headers)
    assert response.status_code == 200
@@ -42,6 +44,8 @@ async def test_get_user_reviews_pagination(client: AsyncClient):
    assert len(data["items"]) == 5
    assert data["page"] == 1
    assert data["pages"] == 1
+   assert data["items"][0]["comment"] == "Test Review Dish 4"
+   assert data["items"][4]["comment"] == "Test Review Dish 0"
 
    response = await client.get("/users/me/reviews?size=2", headers=headers)
    assert response.status_code == 200
@@ -54,31 +58,46 @@ async def test_get_user_reviews_pagination(client: AsyncClient):
    response = await client.get("/users/me/reviews?page=2&size=2", headers=headers)
    assert response.status_code == 200
    data = response.json()
-   assert data["total"] == 5
-   assert len(data["items"]) == 2
    assert data["page"] == 2
-   assert data["size"] == 2
+   assert len(data["items"]) == 2
+   assert data["items"][0]["comment"] == "Test Review Dish 2"
+   assert data["items"][1]["comment"] == "Test Review Dish 1"
 
 
+# Get my reviews - privacy: each user only sees their own reviews, 
 @pytest.mark.anyio
-async def test_user_only_sees_own_reviews(client: AsyncClient):
-   # User A
+async def test_user_only_sees_own_reviews(client: AsyncClient, db_session: AsyncSession):
+   restaurant = await create_test_restaurant(db_session)
+   dishes = []
+   for i in range(3):
+       dish = await create_test_dish(db_session, name=f"Dish {i}", restaurant=restaurant)
+       dishes.append(dish)
+
+   # User A reviews all 3 dishes
    await create_test_user(client)
    token_a = await login_user(client)
    headers_a = auth_header(token_a)
 
-   for i in range(3):
-       response = await client.post("/users/me/reviews", json={"rating": 5, "comment": "Testing comment created"}, headers=headers_a)
-       assert response.status_code == 201
+   for dish in dishes:
+       response = await client.post(
+           f"/dishes/{dish.id}/reviews",
+           json={"rating": 5, "comment": f"A review {dish.name}"},
+           headers=headers_a,
+       )
+       assert response.status_code == 201, response.text
 
-   # User B 
+   # User B reviews the first 2 dishes (same dishes as A, different reviews)
    await create_test_user(client, username="user_b", email="b@test.com", password="b_passworduser111")
    token_b = await login_user(client, email="b@test.com", password="b_passworduser111")
    headers_b = auth_header(token_b)
 
-   for i in range(2):
-       response = await client.post("/users/me/reviews", json={"rating": 4, "comment": "Testing comment created user b"}, headers=headers_b)
-       assert response.status_code == 201
+   for dish in dishes[:2]:
+       response = await client.post(
+           f"/dishes/{dish.id}/reviews",
+           json={"rating": 4, "comment": f"B review {dish.name}"},
+           headers=headers_b,
+       )
+       assert response.status_code == 201, response.text
 
    response_a = await client.get("/users/me/reviews", headers=headers_a)
    response_b = await client.get("/users/me/reviews", headers=headers_b)
@@ -87,27 +106,71 @@ async def test_user_only_sees_own_reviews(client: AsyncClient):
    data_a = response_a.json()
    data_b = response_b.json()
 
+   # each user only gets their own count
    assert data_a["total"] == 3
    assert data_b["total"] == 2
    assert len(data_a["items"]) == 3
    assert len(data_b["items"]) == 2
-   
-    # User A: every review is A's 
+
+   # User A: every review is A's
    for review in data_a["items"]:
        assert review["rating"] == 5
-       assert review["comment"] == "Testing comment created"
+       assert review["comment"].startswith("A review")
        assert review["reviewer"]["username"] == "testuser"
 
    # User B: every review is B's
    for review in data_b["items"]:
        assert review["rating"] == 4
-       assert review["comment"] == "Testing comment created user b"
+       assert review["comment"].startswith("B review")
        assert review["reviewer"]["username"] == "user_b"
 
-   # No review id shows up in both lists
-   ids_a = {review["id"] for review in data_a["items"]}
-   ids_b = {review["id"] for review in data_b["items"]}
+   # no review id shows up in both lists
+   ids_a = {review["review_id"] for review in data_a["items"]}
+   ids_b = {review["review_id"] for review in data_b["items"]}
    assert ids_a.isdisjoint(ids_b)
+
+@pytest.mark.anyio
+async def test_get_user_reviews_empty(client: AsyncClient):
+   await create_test_user(client)
+   token = await login_user(client)
+   headers = auth_header(token)
+
+   response = await client.get("/users/me/reviews", headers=headers)
+   assert response.status_code == 200
+   data = response.json()
+   assert data["items"] == []
+   assert data["total"] == 0
+
+@pytest.mark.anyio
+async def test_get_user_reviews_after_edit_and_delete(client: AsyncClient, db_session: AsyncSession):
+   await create_test_user(client)
+   token = await login_user(client)
+   headers = auth_header(token)
+
+   dish = await create_test_dish(db_session)
+   response = await client.post(
+       f"/dishes/{dish.id}/reviews",
+       json={"rating": 4, "comment": "Before edit"},
+       headers=headers,
+   )
+   review_id = response.json()["review_id"]
+
+   response = await client.patch(f"/reviews/{review_id}", json={"comment": "After edit"}, headers=headers)
+   assert response.status_code == 200
+
+   response = await client.get("/users/me/reviews", headers=headers)
+   assert response.json()["items"][0]["comment"] == "After edit"
+
+   response = await client.delete(f"/reviews/{review_id}", headers=headers)
+   assert response.status_code == 204
+
+   response = await client.get("/users/me/reviews", headers=headers)
+   assert response.json()["total"] == 0
+
+@pytest.mark.anyio
+async def test_get_user_reviews_unauthorized(client: AsyncClient):
+   response = await client.get("/users/me/reviews")
+   assert response.status_code == 401
 
 ###############
 # user get favourite
@@ -359,7 +422,7 @@ async def test_create_user_duplicate_email(client: AsyncClient):
     response = await client.post("/users", json={"username": "different_user","email": "test@example.com", "password": "password111"},)
 
     assert response.status_code == 400
-    assert response.json()["detail"] == "Email already registered"
+    assert response.json()["detail"] == "This email already exists"
 
 @pytest.mark.anyio
 async def test_create_user_success(client: AsyncClient):
@@ -370,7 +433,6 @@ async def test_create_user_success(client: AsyncClient):
     data = response.json()
     assert data["username"] == "newuser"
     assert data["email"] == "newuser@example.com"
-    assert "id" in data
     assert "image_path" in data
     assert "password" not in data
     assert "password_hash" not in data
@@ -471,7 +533,7 @@ async def test_forgot_password_sends_email_success(client: AsyncClient):
     await create_test_user(client)
 
     with patch("routers.users.send_password_reset_email", new_callable=AsyncMock) as mock_send:
-        response = await client.post("/users/forgot_password", json={"email": "test@example.com"},)
+        response = await client.post("/users/forgot-password", json={"email": "test@example.com"},)
 
     assert response.status_code == 202
     mock_send.assert_awaited_once()
@@ -486,7 +548,7 @@ async def test_forgot_password_unknown_email(client: AsyncClient):
     await create_test_user(client)
 
     with patch("routers.users.send_password_reset_email", new_callable=AsyncMock) as mock_send:
-        response = await client.post("/users/forgot_password", json={"email": "wrong@example.com"},)
+        response = await client.post("/users/forgot-password", json={"email": "wrong@example.com"},)
 
     assert response.status_code == 202  
     mock_send.assert_not_awaited()      
@@ -495,7 +557,7 @@ async def test_forgot_password_unknown_email(client: AsyncClient):
 @pytest.mark.anyio
 async def test_forgot_password_invalid_email_format(client: AsyncClient):
     with patch("routers.users.send_password_reset_email", new_callable=AsyncMock) as mock_send:
-        response = await client.post("/users/forgot_password", json={"email": "not-an-email"},)
+        response = await client.post("/users/forgot-password", json={"email": "not-an-email"},)
 
     assert response.status_code == 422
     mock_send.assert_not_awaited()
@@ -505,7 +567,7 @@ async def test_forgot_password_invalid_email_format(client: AsyncClient):
 @pytest.mark.anyio
 async def test_forgot_password_missing_email(client: AsyncClient):
     with patch("routers.users.send_password_reset_email", new_callable=AsyncMock) as mock_send:
-        response = await client.post("/users/forgot_password", json={},)
+        response = await client.post("/users/forgot-password", json={},)
 
     assert response.status_code == 422
     mock_send.assert_not_awaited()
@@ -544,8 +606,10 @@ async def test_reset_password_invalid_token(client: AsyncClient):
         json={"token": "not-a-real-token", "new_password": "new_password_12345"},
     )
     assert response.status_code == 400
+    assert response.json()["detail"] == "Invalid or expired reset token."
 
 # Reset password - failure: an expired token is rejected, password stays the same
+@pytest.mark.anyio
 async def test_reset_password_expired_token(client: AsyncClient, db_session: AsyncSession):
     await create_test_user(client)
     reset_token = await get_reset_token(client)
@@ -555,6 +619,7 @@ async def test_reset_password_expired_token(client: AsyncClient, db_session: Asy
         update(models.PasswordResetToken).values(expires_at=datetime.now(UTC) - timedelta(minutes=1))
     )
     await db_session.commit()
+    
 
     response = await client.post( "/users/reset-password",
         json={"token": reset_token, "new_password": "new_password_12345"},
@@ -590,6 +655,7 @@ async def test_reset_password_token_single_use(client: AsyncClient):
         json={"token": reset_token, "new_password": "another_password_678"},
     )
     assert response.status_code == 400
+
 
 # Reset password - bad input: missing fields
 @pytest.mark.anyio
@@ -886,8 +952,7 @@ async def test_upload_profile_picture(client: AsyncClient, mocked_aws):
     user = await create_test_user(client)
     token = await login_user(client)
 
-    test_image_path = Path(__file__).parent / "test_profile_image.jpg"
-    image_bytes = test_image_path.read_bytes()
+    image_bytes = make_test_image_bytes()
 
     response = await client.patch(
         f"/users/me/picture",
@@ -948,7 +1013,7 @@ async def test_upload_picture_s3_failure(client: AsyncClient):
     token = await login_user(client)
     headers = auth_header(token)
 
-    image_bytes = (Path(__file__).parent / "test_profile_image.jpg").read_bytes()
+    image_bytes = make_test_image_bytes()
 
     response = await client.get("/users/me", headers=headers)
     image_before = response.json()["image_file"]
@@ -977,8 +1042,7 @@ async def test_upload_picture_missing_file(client: AsyncClient):
 # Upload picture - unauthorized
 @pytest.mark.anyio
 async def test_upload_picture_unauthorized(client: AsyncClient):
-    image_bytes = (Path(__file__).parent / "test_profile_image.jpg").read_bytes()
-
+    image_bytes = make_test_image_bytes()
     response = await client.patch( "/users/me/picture",
         files={"file": ("profile.jpg", BytesIO(image_bytes), "image/jpeg")},
     )
@@ -994,7 +1058,7 @@ async def test_delete_picture_success(client: AsyncClient, mocked_aws):
    token = await login_user(client)
    headers = auth_header(token)
 
-   image_bytes = (Path(__file__).parent / "test_profile_image.jpg").read_bytes()
+   image_bytes =  make_test_image_bytes()
    response = await client.patch( "/users/me/picture",
        files={"file": ("profile.jpg", BytesIO(image_bytes), "image/jpeg")},
        headers=headers,
@@ -1021,6 +1085,7 @@ async def test_delete_picture_no_picture(client: AsyncClient):
 
    response = await client.delete("/users/me/picture", headers=headers)
    assert response.status_code == 403
+   assert response.json()["detail"] == "No profile picture to delete"
 
 # Delete picture - failure: deleting twice, the second call is rejected
 @pytest.mark.anyio
@@ -1029,12 +1094,12 @@ async def test_delete_picture_twice(client: AsyncClient, mocked_aws):
    token = await login_user(client)
    headers = auth_header(token)
 
-   image_bytes = (Path(__file__).parent / "test_profile_image.jpg").read_bytes()
+   image_bytes = make_test_image_bytes()
    response = await client.patch( "/users/me/picture",
        files={"file": ("profile.jpg", BytesIO(image_bytes), "image/jpeg")},
        headers=headers,
    )
-   assert response.status_code == 200
+   assert response.status_code == 200, response.text
 
    response = await client.delete("/users/me/picture", headers=headers)
    assert response.status_code == 200

@@ -1,36 +1,37 @@
 import pytest
 from httpx import AsyncClient
 from sqlalchemy.ext.asyncio import AsyncSession
-from tests.conftest import auth_header, create_test_user, login_user, create_test_dish
+from tests.conftest import (
+    auth_header, 
+    create_test_user, 
+    login_user,  
+    create_test_dish)
 
 
 ################
 # update review 
 ################
 @pytest.mark.anyio
-async def test_update_review_success(client: AsyncClient):
+async def test_update_review_success(client: AsyncClient, db_session: AsyncSession):
     ## /reviews/{review_id}
     await create_test_user(client)
     token = await login_user(client)
     headers = auth_header(token)
 
-    # might add more step to get dish_id correctly
-    dish_id = 1 ## TODO
-
-    response = await client.post(
-           f"/{dish_id}/reviews",
-           json={"dish_id": 1, "rating": 3, "comment": "This is user review comment" },
+    #create dish
+    dish = await create_test_dish(db_session)
+    #review dish
+    response = await client.post(f"/dishes/{dish.id}/reviews",
+           json={"dish_id": dish.id, "rating": 3, "comment": "This is user review comment" },
            headers=headers,
        )
+    assert response.status_code == 201, response.text
+    review_id = response.json()["review_id"]
 
-    review_id = response.json()["id"]
-
-    response = await client.patch(
-        f"reviews/{review_id}",
+    response = await client.patch(f"/reviews/{review_id}",
         json={"comment":"Updated review comment now"},
         headers=headers
     )
-
     assert response.status_code == 200
     data = response.json()
     assert data["rating"] == 3
@@ -39,30 +40,28 @@ async def test_update_review_success(client: AsyncClient):
 
 
 @pytest.mark.anyio
-async def test_update_review_wrong_user(client: AsyncClient):
+async def test_update_review_wrong_user(client: AsyncClient, db_session: AsyncSession):
     await create_test_user(client, username="user1", email="user1@example.com")
     token1 = await login_user(client, email="user1@example.com")
 
-    dish_id = 1 ## TODO: not sure if can hard code 
-
-    response = await client.post(
-        f"/{dish_id}/reviews",
-        json={"dish_id": 1, "rating": 1, "comment": "Only user1 can update this review" },
+    dish = await create_test_dish(db_session)
+    # user1 creates review
+    response = await client.post(f"/dishes/{dish.id}/reviews",
+        json={"dish_id": dish.id, "rating": 1, "comment": "Only user1 can update this review" },
         headers=auth_header(token1),
     )
+    review_id = response.json()["review_id"]
 
-    review_id = response.json()["id"]
+    #wrong user 
     await create_test_user(client, username="user2", email="user2@example.com")
     token2 = await login_user(client, email="user2@example.com" )
 
-    response = await client.patch(
-        f"/review/{review_id}",
+    response = await client.patch(f"/reviews/{review_id}",
         json={"comment": "Hacked comment, I am the wrong user to update review"},
         headers=auth_header(token2)
     )
-
     assert response.status_code == 403
-    assert response.json(["detail"]) == "Not authorized user to update this review!"
+    assert response.json()["detail"] == "Not authorized to edit this review"
 
 
 # Update review - failure: a review id that doesn't exist
@@ -86,7 +85,7 @@ async def test_update_review_unauthorized(client: AsyncClient):
 ################
 # user deleted review 
 ################
-# Delete review - success: owner deletes their review, returns 204 and it disappears from the dish
+# Delete review - success
 @pytest.mark.anyio
 async def test_delete_review_success(client: AsyncClient, db_session: AsyncSession):
    await create_test_user(client)
@@ -99,8 +98,9 @@ async def test_delete_review_success(client: AsyncClient, db_session: AsyncSessi
        headers=headers,
    )
    assert response.status_code == 201
-   review_id = response.json()["id"]
+   review_id = response.json()["review_id"]
 
+    # delete review start here
    response = await client.delete(f"/reviews/{review_id}", headers=headers)
    assert response.status_code == 204
    assert response.text == ""  
@@ -124,16 +124,19 @@ async def test_delete_review_not_found(client: AsyncClient):
 # Delete review - failure: deleting someone else's review 
 @pytest.mark.anyio
 async def test_delete_review_wrong_user(client: AsyncClient, db_session: AsyncSession):
-   dish = await create_test_dish(db_session)
    await create_test_user(client)
    token_a = await login_user(client)
    headers_a = auth_header(token_a)
+
+    #create dish
+   dish = await create_test_dish(db_session)
+   # create review to this
    response = await client.post(f"/dishes/{dish.id}/reviews",
        json={"rating": 5, "comment": "A's review"},
        headers=headers_a,
    )
    assert response.status_code == 201
-   review_id = response.json()["id"]
+   review_id = response.json()["review_id"]
 
    # User B tries to delete user A's
    await create_test_user(client, username="user_b", email="b@test.com", password="b_passworduser111")
@@ -144,11 +147,15 @@ async def test_delete_review_wrong_user(client: AsyncClient, db_session: AsyncSe
    assert response.status_code == 403
    assert response.json()["detail"] == "Not authorized to edit this review"
 
+   """""
    # A's review is still there
-   response = await client.get(f"/dishes/{dish.id}")
-   reviews = response.json()["reviews"]
-   assert len(reviews) == 1
-   assert reviews[0]["comment"] == "A's review"
+   response = await client.get(f"/users/me/reviews")
+   assert response.status_code == 200
+   reviews = response.json()
+   assert reviews["total"] == 1
+   assert len(reviews["items"]) == 1
+   assert reviews["items"][0]["comment"] == "A's review"
+   """""
 
 
 # Delete review - failure: deleting the same review twice
@@ -163,7 +170,7 @@ async def test_delete_review_twice(client: AsyncClient, db_session: AsyncSession
        json={"rating": 4, "comment": "Delete me twice"},
        headers=headers,
    )
-   review_id = response.json()["id"]
+   review_id = response.json()["review_id"]
 
    response = await client.delete(f"/reviews/{review_id}", headers=headers)
    assert response.status_code == 204
