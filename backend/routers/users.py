@@ -1,5 +1,6 @@
 from datetime import timedelta, UTC, datetime
 from typing import Annotated
+from config import settings
 from botocore.exceptions import ClientError
 from fastapi import APIRouter, Depends, HTTPException, status, UploadFile, BackgroundTasks
 from fastapi.security import OAuth2PasswordRequestForm
@@ -33,7 +34,6 @@ from schemas import (
     ForgotPasswordRequest,
     ResetPasswordRequest,
 )
-from config import settings
 from image_utils import delete_profile_image, process_profile_image, upload_profile_image
 
 
@@ -315,6 +315,7 @@ async def upload_user_picture(
     try: 
         await upload_profile_image(processed_bytes, new_filename)
     except ClientError as err:
+        print("upload error:", err)
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Failed to upload image. Please try again",

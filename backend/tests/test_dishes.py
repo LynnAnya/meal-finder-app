@@ -40,8 +40,8 @@ async def test_get_dishes_empty(client: AsyncClient):
 
     assert response.status_code == 200
     data = response.json()
-    assert data["dishes"] == []
-    assert data["totla"] == 0
+    assert data["items"] == []
+    assert data["total"] == 0
     assert data["page"] == 1
     assert data["pages"] == 0
 
@@ -353,7 +353,7 @@ async def test_create_review_success(client: AsyncClient, db_session: AsyncSessi
    assert data["rating"] == 3
    assert data["comment"] == "This is user review comment"
    assert data["reviewer"]["username"] == "testuser"
-   assert "id" in data
+   assert "review_id" in data
    assert "created_at" in data
 
    response = await client.get(f"/dishes/{dish.id}")

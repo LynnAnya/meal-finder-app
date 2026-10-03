@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from botocore.exceptions import ClientError
 from io import BytesIO
 from pathlib import Path
+#from moto import mock_aws  ##
 from unittest.mock import AsyncMock, patch
 from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -960,16 +961,19 @@ async def test_upload_profile_picture(client: AsyncClient, mocked_aws):
         headers= auth_header(token),
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 200, response.text
     data = response.json()
     assert data["image_file"] is not None
     assert data["image_file"].endswith(".jpg")
-    assert "s3" in data["image_path"]
+    assert data["image_path"].startswith("http")
+    assert "/profile_pics/" in data["image_path"]
+    assert data["image_path"].endswith(f"/profile_pics/{data['image_file']}")
 
     s3_objects = mocked_aws.list_objects_v2(Bucket="test-bucket")
     assert "Contents" in s3_objects
     assert len(s3_objects["Contents"]) == 1
     assert s3_objects["Contents"][0]["Key"].endswith(data["image_file"])
+
 
 # Upload picture - failure: file over the size limit
 @pytest.mark.anyio

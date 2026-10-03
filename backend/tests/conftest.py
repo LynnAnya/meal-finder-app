@@ -8,12 +8,13 @@ os.environ["SECRET_KEY"] = "test-secret-key-for-testing-only"
 
 os.environ["R2_ACCOUNT_ID"] = "test_account_id"
 os.environ["R2_BUCKET_NAME"] = "test-bucket"
-os.environ["R2_ACCESS_KEY_ID"] = "testing"
-os.environ["R2_SECRET_ACCESS_KEY"] = "testing"
+os.environ["R2_ACCESS_KEY_ID"] = "testing-access-key"
+os.environ["R2_SECRET_ACCESS_KEY"] = "dummy-secret-testing"
 os.environ["R2_PUBLIC_DOMAIN"] = "pub-fake.r2.dev"
+os.environ["R2_ENDPOINT_URL"] = "https://s3.us-east-1.amazonaws.com"
 
 os.environ["AWS_ACCESS_KEY_ID"] = "testing"
-os.environ["AWS_SECRET_ACCESS_KEY"] = "testing"
+os.environ["AWS_SECRET_ACCESS_KEY"] = "testing12345678901234567890123456789012"
 os.environ["AWS_DEFAULT_REGION"] = "us-east-1"
 
 import boto3

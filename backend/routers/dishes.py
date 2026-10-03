@@ -2,7 +2,7 @@ from typing import Annotated
 from config import settings
 from fastapi import APIRouter, Depends, HTTPException, status, Query
 from fastapi_pagination import Page
-from fastapi_pagination.ext.sqlalchemy import paginate
+from fastapi_pagination.ext.sqlalchemy import apaginate
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload, joinedload
@@ -32,7 +32,7 @@ async def get_home(db: Annotated[AsyncSession, Depends(get_db)] ):
         .options(joinedload(models.Dish.restaurant))
         .order_by(models.Dish.id.desc())
     )
-    return await paginate(db, query)
+    return await apaginate(db, query)
 
 #user search/filter dish -> get list ---DONE
 @router.get("/search", response_model=Page[DishResponse])
@@ -58,7 +58,7 @@ async def get_search_dishes(
     if menu_category:
        query = query.where(models.Dish.menu_category.ilike(menu_category.strip()))
 
-    return await paginate(db, query.order_by(models.Dish.id.desc()))
+    return await apaginate(db, query.order_by(models.Dish.id.desc()))
 
 # get specfic dish detail from specific restaurant. ---- DONE
 @router.get("/{dish_id}", response_model=DishDetailResponse)

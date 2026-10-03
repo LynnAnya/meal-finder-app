@@ -1,17 +1,19 @@
 import uuid
 from io import BytesIO
 import boto3
+from config import settings
 from PIL import Image, ImageOps
 from pillow_heif import register_heif_opener
 from starlette.concurrency import run_in_threadpool
-from config import settings
+
 
 register_heif_opener()
 
 def _get_s3_client():
+    
     return boto3.client(
         "s3",
-        region_name = "auto",
+        region_name="us-east-1" if "amazonaws.com" in (settings.r2_endpoint_url or "") else "auto",
         aws_access_key_id=(settings.r2_access_key_id.get_secret_value()
                            if settings.r2_access_key_id
                            else None),
@@ -38,7 +40,8 @@ def process_profile_image(content: bytes) -> tuple[bytes, str]:
     return output.read(), filename
 
 def _upload_to_s3(file_bytes: bytes, key:str) -> None:
-    s3= _get_s3_client()
+    s3 = _get_s3_client()
+    
     s3.upload_fileobj(
         BytesIO(file_bytes),
         settings.r2_bucket_name,
