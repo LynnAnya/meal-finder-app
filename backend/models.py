@@ -60,12 +60,19 @@ class Dish(Base):
     price: Mapped[float] = mapped_column(Float, nullable=False)
     menu_category: Mapped[str] = mapped_column(String(50), index=True)
     average_rating: Mapped[float] = mapped_column(Float, default=0.0)
-    
+    image_file: Mapped[str | None] = mapped_column(String(200), nullable=True, default=None)
+
     restaurant_id: Mapped[int] = mapped_column(ForeignKey("restaurants.id", ondelete="CASCADE"), index=True, nullable=False)
 
     restaurant: Mapped[Restaurant] = relationship(back_populates="dishes")
     reviews: Mapped[list[Review]] = relationship(back_populates="dish", cascade="all, delete-orphan")
     favourited_by_users: Mapped[list["User"]] = relationship(secondary="favourites",back_populates="favourite_dishes")
+
+    @property
+    def dish_image_path(self) -> str | None:
+        if self.image_file:
+            return f"https://{settings.r2_public_domain}/dishes/{self.image_file}"
+        return None
 
 class Restaurant(Base):
     __tablename__ = "restaurants"

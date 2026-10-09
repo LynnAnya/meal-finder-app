@@ -7,7 +7,6 @@ import models
 from integrations.osm import fetch_nearby_osm_restaurants
 
 USER_HASH_PWD = hash_password("pw_hashed_123")  # Pre-hashed password for test users
-
 # -------------------------------------------------------------------------
 # Contextual Review Comment Pool for AI Grounding
 # -------------------------------------------------------------------------
@@ -63,6 +62,67 @@ def _get_dish_reviews(dish_name: str) -> list[tuple[str, int]]:
     if "acai" in name_l:
         return REVIEW_DATA["Acai"]
     return REVIEW_DATA["Default"]
+
+def _get_dish_image_file(dish_name: str) -> str:
+    mapping = {
+        "Potato Hash Cakes with Poached Eggs": "breakfast.jpg",
+        "Smashed Avocado on Sourdough": "breakfast.jpg",
+        "House Pork Belly & Fried Eggs": "breakfast.jpg",
+        "Eggs on Toast with House Relish": "breakfast.jpg",
+        "Classic Double Cheeseburger": "burger.jpg",
+        "Aussie Works Burger": "burger.jpg",
+        "Crispy Bacon & Avocado Burger": "burger.jpg",
+        "Loaded Chilli Cheese Dog": "burger.jpg",
+        "Mortadella & Pistachio Panino": "burger.jpg",
+        "Crispy Panko Chicken Focaccia": "burger.jpg",
+        "Crispy Pork Belly Banh Mi": "burger.jpg",
+        "Single Origin Flat White": "coffee.jpg",
+        "Italian Iced Shakerato": "coffee.jpg",
+        "Ceremonial Iced Matcha Latte": "matcha.jpg",
+        "Chocolate Malt Milkshake": "matcha.jpg",
+        "Açai Guaraná Smoothie": "matcha.jpg",
+        "Craft Beer Tasting Pint": "matcha.jpg",
+        "Rosemary Sea Salt Chips": "sides_fries.jpg",
+        "Potato Scallop Batch (3pcs)": "sides_fries.jpg",
+        "Crumbed Cod & Chips Pack": "sides_fries.jpg",
+        "Crispy Calamari Rings (6pcs)": "sides_fries.jpg",
+        "Salt & Pepper Calamari": "sides_fries.jpg",
+        "Truffle Potato Mash": "sides_fries.jpg",
+        "Garlic Parmesan Dough Knots (4pcs)": "sides_fries.jpg",
+        "Tingmo Steamed Bread": "sides_fries.jpg",
+        "Pork & Prawn Rice Paper Rolls (3pcs)": "sides_fries.jpg",
+        "Char-Grilled Angus Steak (350g)": "steak.jpg",
+        "Char-Grilled Angus Steak (300g)": "steak.jpg",
+        "Seared Scallops & Pancetta": "steak.jpg",
+        "Classic Chicken Parmigiana": "steak.jpg",
+        "Woodfired Margherita Pizza": "pizza.jpg",
+        "Classic Margherita Pie": "pizza.jpg",
+        "NY Pepperoni Slice": "pizza.jpg",
+        "Handmade Truffle Pappardelle": "pasta.jpg",
+        "Signature Tonkotsu Ramen": "ramen.jpg",
+        "Vietnamese Beef Pho (Pho Bo)": "ramen.jpg",
+        "Spicy Tom Yum Prawn Soup": "ramen.jpg",
+        "Khao Soi Gai Curry Noodles": "ramen.jpg",
+        "Crispy Korean Fried Chicken": "fried_chicken.jpg",
+        "Crispy Chicken Katsu Curry": "fried_chicken.jpg",
+        "Northern Thai Pork Curry (Gaeng Hang Lay)": "curry.jpg",
+        "Massaman Beef Curry": "curry.jpg",
+        "Himalayan Slow-Braised Goat Curry": "curry.jpg",
+        "Pan-Fried Pork Gyoza (5pcs)": "dumplings.jpg",
+        "Steamed Pork Momos (6pcs)": "dumplings.jpg",
+        "Seafood Scallion Pancake (Pajeon)": "dumplings.jpg",
+        "Pad Thai Boran": "asian_dish.jpg",
+        "Crispy Pork Belly with Chinese Broccoli": "asian_dish.jpg",
+        "Stone Pot Bibimbap": "asian_dish.jpg",
+        "Classic Açai Energy Bowl": "acai_bowl.jpg",
+        "Peanut Butter Crunch Açai Cup": "acai_bowl.jpg",
+        "Artisan Double Scoop Gelato": "dessert.jpg",
+        "Warm Brownie Fudge Sundae": "dessert.jpg",
+        "Wild Berry Fruit Sorbet Cup": "dessert.jpg",
+        "New York Baked Cheesecake": "dessert.jpg",
+        "Classic Espresso Tiramisu": "tiramisu.jpg",
+    }
+    return mapping.get(dish_name, "default_food.jpg")
 
 
 # -------------------------------------------------------------------------
@@ -194,7 +254,6 @@ def generate_venue_menu(v_name: str, v_type: str, cuisine: str | None) -> list[d
             ("Classic Double Cheeseburger", 15.00, "Mains", 4.4),
             ("Salt & Pepper Calamari", 15.50, "Appetizers", 4.3),
         ]
-
     seen_names = set()
     cleaned_menu = []
 
@@ -202,11 +261,9 @@ def generate_venue_menu(v_name: str, v_type: str, cuisine: str | None) -> list[d
         if name in seen_names:
             continue
         seen_names.add(name)
-
         # Dynamic price variation: +/- $1.00
         price_delta = random.choice([-1.00, -0.50, 0.0, 0.50, 1.00])
         final_price = max(3.50, round(base_price + price_delta, 2))
-
         # Dynamic rating variation: +/- 0.2
         rating_delta = random.choice([-0.2, -0.1, 0.0, 0.1, 0.2])
         final_rating = round(min(5.0, max(3.2, base_rating + rating_delta)), 1)
@@ -216,10 +273,9 @@ def generate_venue_menu(v_name: str, v_type: str, cuisine: str | None) -> list[d
             "price": final_price,
             "menu_category": category,
             "average_rating": final_rating,
+            "image_file": _get_dish_image_file(name),
         })
-
     return cleaned_menu
-
 # -------------------------------------------------------------------------
 # Database Seed Pipeline
 # -------------------------------------------------------------------------
@@ -320,6 +376,7 @@ async def seed_data():
                     price=d_info["price"],
                     menu_category=d_info["menu_category"],
                     average_rating=d_info["average_rating"],
+                    image_file=d_info["image_file"],
                     restaurant_id=restaurant.id,
                 )
                 session.add(dish)
@@ -343,7 +400,6 @@ async def seed_data():
                         comment=comment_text,
                     )
                     session.add(rev)
-
         await session.commit()
         print(f"Done! Successfully seeded {len(osm_venues)} restaurants with valid category-tagged dishes and reviews.")
 

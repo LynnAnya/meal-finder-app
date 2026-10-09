@@ -33,10 +33,10 @@ class DishUpdate(BaseModel):
 class DishResponse(DishBase): 
     model_config = ConfigDict(from_attributes=True)
     
-    #add photo file path later
     dish_id: int = Field(validation_alias="id")
     dish_name: str = Field(validation_alias="name")
     average_rating: float
+    dish_image_path: str | None = Field(default=None, validation_alias="dish_image_path")
     restaurant_id: int = Field(validation_alias=AliasPath("restaurant", "id"))
     restaurant_name: str = Field(validation_alias=AliasPath("restaurant", "name"))
     restaurant_address: str | None = Field(validation_alias=AliasPath("restaurant", "address"))
