@@ -312,8 +312,8 @@ class _DishDetailScreenState extends ConsumerState<DishDetailScreen> {
                       decoration: _doodleDecoration(borderRadius: 16),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(15),
-                        child: dish.imageUrl != null && dish.imageUrl!.isNotEmpty
-                            ? Image.network(dish.imageUrl!, fit: BoxFit.cover)
+                        child: dish.dishImagePath != null && dish.dishImagePath!.isNotEmpty
+                            ? Image.network(dish.dishImagePath!, fit: BoxFit.cover)
                             : Container(
                                 color: const Color(0xFFF0F0F0),
                                 child: Icon(Icons.fastfood_outlined, color: textMain, size: 80),

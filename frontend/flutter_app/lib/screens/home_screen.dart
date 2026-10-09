@@ -608,8 +608,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                       ),
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(9),
-                        child: dish.imageUrl != null && dish.imageUrl!.isNotEmpty
-                            ? Image.network(dish.imageUrl!, fit: BoxFit.cover)
+                        child: dish.dishImagePath != null && dish.dishImagePath!.isNotEmpty
+                            ? Image.network(dish.dishImagePath!, fit: BoxFit.cover)
                             : Container(
                                 color: const Color(0xFFF0F0F0),
                                 child: Icon(Icons.fastfood_outlined, color: textMain, size: 38),

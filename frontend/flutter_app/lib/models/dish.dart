@@ -7,7 +7,7 @@ class Dish {
   final double price;
   final double rating;
   final String menuCategory;
-  final String? imageUrl;
+  final String? dishImagePath;
   final int? restaurantId;
   final String? restaurantName;
   final String? restaurantAddress;
@@ -20,7 +20,7 @@ class Dish {
     required this.price,
     required this.rating,
     required this.menuCategory,
-    this.imageUrl,
+    this.dishImagePath,
     this.restaurantId,
     this.restaurantName,
     this.restaurantAddress,
@@ -35,7 +35,7 @@ class Dish {
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
       rating: (json['average_rating'] ?? json['rating'] as num?)?.toDouble() ?? 0.0,
       menuCategory: json['menu_category'] as String? ?? 'Mains',
-      imageUrl: json['image_url'] as String?,
+      dishImagePath: json['dish_image_path'] as String?,
       restaurantId: json['restaurant_id'] ?? json['restaurant']?['id'],
       restaurantName: json['restaurant_name'] ?? json['restaurant']?['name'],
       restaurantAddress: json['restaurant_address'] ?? json['restaurant']?['address'],
@@ -51,7 +51,7 @@ class Dish {
       'price': price,
       'average_rating': rating,
       'menu_category': menuCategory,
-      'image_url': imageUrl,
+      'dish_image_path': dishImagePath,
       'restaurant_id': restaurantId,
       'restaurant_name': restaurantName,
       'restaurant_address': restaurantAddress,
@@ -71,7 +71,7 @@ class DishDetail extends Dish {
     required super.price,
     required super.rating,
     required super.menuCategory,
-    super.imageUrl,
+    super.dishImagePath,
     super.restaurantId,
     super.restaurantName,
     super.restaurantAddress,
@@ -98,7 +98,7 @@ class DishDetail extends Dish {
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
       rating: (json['average_rating'] ?? json['rating'] as num?)?.toDouble() ?? 0.0,
       menuCategory: json['menu_category'] as String? ?? 'Mains',
-      imageUrl: json['image_url'] as String?,
+      dishImagePath: json['dish_image_path'] as String?,
       restaurantId: json['restaurant_id'] ?? parsedRestaurant?.id,
       restaurantName: json['restaurant_name'] ?? parsedRestaurant?.name,
       restaurantAddress: json['restaurant_address'] ?? parsedRestaurant?.address,

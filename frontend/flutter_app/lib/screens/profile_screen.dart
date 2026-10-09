@@ -45,33 +45,26 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
   //
   Widget _buildProfileAvatar(User user, {required double radius, required double iconSize}) {
     // 1. Get image string from model
-    final String? imageName = user.imageFile ?? user.imagePath;
+    final String? rawUrl = user.imagePath;
 
     String? fullImageUrl;
-    if (imageName != null && imageName.isNotEmpty) {
-      // Clean any accidental leading slash
-      final cleanPath = imageName.startsWith('/') ? imageName.substring(1) : imageName;
-
-      if (cleanPath.startsWith('http')) {
-        fullImageUrl = cleanPath;
-      } else if (cleanPath.startsWith('media/')) {
-        // Backend returned 'media/profile_pics/sample.jpg'
-        fullImageUrl = 'http://127.0.0.1:8000/$cleanPath';
-      } else if (cleanPath.startsWith('profile_pics/')) {
-        // Backend returned 'profile_pics/sample.jpg'
-        fullImageUrl = 'http://127.0.0.1:8000/media/$cleanPath';
+    if (rawUrl != null && rawUrl.isNotEmpty) {
+      if (rawUrl.startsWith('http')) {
+        // 🎯 R2 CDN URL or full web link -> append timestamp to bypass Flutter image cache
+        fullImageUrl = '$rawUrl?v=${DateTime.now().millisecondsSinceEpoch}';
       } else {
-        // Backend returned raw filename 'sample.jpg'
-        fullImageUrl = 'http://127.0.0.1:8000/media/profile_pics/$cleanPath';
+        // Local fallback (if testing static files without R2)
+        final cleanPath = rawUrl.startsWith('/') ? rawUrl.substring(1) : rawUrl;
+        fullImageUrl = 'http://127.0.0.1:8000/$cleanPath';
       }
     }
 
-    return CircleAvatar(
-      radius: radius,
-      backgroundColor: accentColor,
-      foregroundImage: fullImageUrl != null ? NetworkImage(fullImageUrl) : null,
-      child: Icon(Icons.person_rounded, color: textMain, size: iconSize),
-    );
+  return CircleAvatar(
+    radius: radius,
+    backgroundColor: accentColor,
+    foregroundImage: fullImageUrl != null ? NetworkImage(fullImageUrl) : null,
+    child: Icon(Icons.person_rounded, color: textMain, size: iconSize),
+  );
   }
  
   // 🗑️ Delete Account Logic

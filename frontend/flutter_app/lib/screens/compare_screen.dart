@@ -304,9 +304,9 @@ class _CompareScreenState extends ConsumerState<CompareScreen> {
               ),
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(9),
-                child: dish.imageUrl != null && dish.imageUrl!.isNotEmpty
+                child: dish.dishImagePath != null && dish.dishImagePath!.isNotEmpty
                     ? Image.network(
-                        dish.imageUrl!,
+                        dish.dishImagePath!,
                         fit: BoxFit.cover,
                         errorBuilder: (_, _, _) => _buildPlaceholderImage(),
                       )

@@ -252,9 +252,9 @@ class _FavouritesScreenState extends ConsumerState<FavouriteScreen> {
                   ),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(9),
-                    child: dish.imageUrl != null && dish.imageUrl!.isNotEmpty
+                    child: dish.dishImagePath != null && dish.dishImagePath!.isNotEmpty
                         ? Image.network(
-                            dish.imageUrl!,
+                            dish.dishImagePath!,
                             fit: BoxFit.cover,
                             errorBuilder: (context, error, stackTrace) =>
                                 Container(
