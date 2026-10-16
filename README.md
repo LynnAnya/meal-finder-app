@@ -4,6 +4,9 @@
 <p align="center">
   <img src="images/review-screen.gif" width="250" />
   <img src="images/compare-fav-screen.gif" width="250" />
+  <br>
+  <img src="images/change-pwd-screen.gif" width="250" />
+  <img src="images/user-location-screen.png" width="250" />
 </p>
 
 
